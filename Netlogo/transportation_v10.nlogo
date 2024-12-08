@@ -821,7 +821,7 @@ end
 
 ;each time step the model will run the go function
 to go
-  ;generate random number compare wiht commuty weight to select destination community
+
 
   ;2 set up the transportation type
   ;stay the same
@@ -834,6 +834,17 @@ to go
   update-safety
   update-security
 
+
+   if ticks > 1
+  [
+
+    if (ticks mod (30) = 0.000) ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
+
+    ; procedures that run every decision period
+     [
+      update-scores-tech-attributes ; calulates values for tech attributes to be used in satisfaction update for each agent in every decision tick
+    ]
+  ]
 
   tick
 
@@ -1019,6 +1030,13 @@ to update-security
    ]
 
 end
+
+
+
+to update-scores-tech-attributes
+
+end
+
 
 ;;************************;;
 ;;****     3 Tools    ****;;
