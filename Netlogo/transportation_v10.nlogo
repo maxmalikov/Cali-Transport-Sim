@@ -9,9 +9,23 @@ breed [people person] ;simulate people
 ;---------------Gloabl Variables------------------
 globals[
   time
-  my-gis-dataset         ;;gis dataset
-  my-cvs-dataset         ; list with parameters imported from csv
- ;include in the gis dataset?
+  my-gis-dataset         ;gis dataset
+  my-cvs-dataset         ;list with parameters imported from csv
+  cost-buy-mot
+  cost-buy-car
+  cost-buy-pub
+  costf-op-mot
+  costf-op-car
+  costf-op-pub
+  comfort-m
+  comfort-c
+  comfort-p
+  gas-price
+  eff-mot
+  eff-car
+  emi-mot
+  emi-car
+  emi-pub
   acc-rate-mot     ; accident rate for motorcycles
   acc-rate-car     ; accident rate for cars
   acc-rate-pub     ; accident rate for public transit
@@ -19,6 +33,8 @@ globals[
   insecur-c        ; insecurity rate for cars
   insecur-p        ; insecurity rate for public transport
   density          ; excess of equivalent cars in 8 neighbor patches around (calculated over the base case)
+
+
 ]
 
 ;---------------Patch Attributes---------------
@@ -105,7 +121,7 @@ to setup
   ;set time 0
   reset-ticks
   resize-world 0 149 0 149 set-patch-size 5
-  ;Load Vector Boundary Data
+  ;Load Vector Boundary my-cvs-dataset
   ;set my-gis-dataset gis:load-dataset "Data/test.shp"
   ;set my-gis-dataset gis:load-dataset "data/raw_data/shp/cali_community_wgs84.shp"
   set my-gis-dataset gis:load-dataset "cali_community_demo_wgs84.shp"
@@ -123,13 +139,6 @@ to setup
 
   set-transportation-type
 
-   ; UPDATE IN THE GIS DATASET
-  set acc-rate-mot 0.40    ; accident rate for motorcycles
-  set acc-rate-car 0.06    ; accident rate for cars
-  set acc-rate-pub 0.05    ; accident rate for public transit
-  set insecur-m    0.06    ; insecurity rate for motorcycles
-  set insecur-c    0.04    ; insecurity rate for cars
-  set insecur-p    0.08    ; insecurity rate for public transport
 
   set-speed
 
@@ -762,33 +771,47 @@ to set-speed
 end
 
 to set-transportation-info-based-on-type
-  if t-type = 1[
 
-    set emission 0
-    set accident-rate 0
-    set crime-rate 0
-    set fuel-eff 0
-    set acq-score 0
-    set oper-cost 0
-  ]
-  if t-type = 2[
 
-    set emission 0
-    set accident-rate 0
-    set crime-rate 0
-    set fuel-eff 0
-    set acq-score 0
-    set oper-cost 0
-  ]
-  if t-type = 3[
+ ; Asignation of initial scores (0 - 1) to the acquisition cost for each transport mode
+  set cost-buy-mot first (item 3 my-cvs-dataset)
+  set cost-buy-car first (item 4 my-cvs-dataset)
+  set cost-buy-pub first (item 5 my-cvs-dataset)
 
-    set emission 0
-    set accident-rate 0
-    set crime-rate 0
-    set fuel-eff 0
-    set acq-score 0
-    set oper-cost 0
-  ]
+; Asignation of initial scores (0 - 1) to the operation fixed cost for each transport mode
+  set costf-op-mot first (item 6 my-cvs-dataset)
+  set costf-op-car first (item 7 my-cvs-dataset)
+  set costf-op-pub first (item 8 my-cvs-dataset)
+
+; Asignation of initial scores (0-1) to the comfort for each transport mode
+  set comfort-m first (item 9 my-cvs-dataset)
+  set comfort-c first (item 10 my-cvs-dataset)
+  set comfort-p first (item 11 my-cvs-dataset)
+
+; Gasoline price USD
+  set gas-price first (item 12 my-cvs-dataset);
+
+; Efficiency of transport mode km/gal
+  set eff-mot first (item 13 my-cvs-dataset)
+  set eff-car first (item 14 my-cvs-dataset)
+
+; Emissions
+  set emi-mot first (item 15 my-cvs-dataset)
+  set emi-car first (item 16 my-cvs-dataset)
+  set emi-pub first (item 17 my-cvs-dataset)
+
+; Accident rate
+  set acc-rate-mot first (item 18 my-cvs-dataset)
+  set acc-rate-car first (item 19 my-cvs-dataset)
+  set acc-rate-pub first (item 20 my-cvs-dataset)
+
+; Insecurity rates of transport modes
+  set insecur-m first (item 21 my-cvs-dataset)
+  set insecur-c first (item 22 my-cvs-dataset)
+  set insecur-p first (item 23 my-cvs-dataset)
+
+
+
 end
 
 
