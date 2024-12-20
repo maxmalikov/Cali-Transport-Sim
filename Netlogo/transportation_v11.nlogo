@@ -8,9 +8,8 @@ breed [people person] ;simulate people
 
 ;---------------Gloabl Variables------------------
 globals[
-  time
   my-gis-dataset         ;gis dataset
-  my-cvs-dataset         ;list with parameters imported from csv
+  my-csv-dataset         ;list with parameters imported from csv
   cost-buy-mot
   cost-buy-car
   cost-buy-pub
@@ -45,6 +44,9 @@ globals[
   scaling-factor   ; determines how much to divide population for - used in testing.Defined in Initialization Function
   max-costv        ; max variable operating cost in the system, used to calculate op-cost scores
   min-costv        ; min variable operating cost in the system, used to calculate op-cost scores
+  capacity-public  ; passengers capcity in the public system
+  reg-speed-pub    ; regular speed of public system with current capacity
+  default-wait-time; current waiting time of the system, minutes calculated with the numer of buses coming per hour  (60 / rate of buses)
 
 ]
 
@@ -86,10 +88,10 @@ people-own[
   speed-car       ; speed affected by congestion for car
   speed-pub       ; speed affected by congestion for public
   dist-trip       ; distance ; distance traveled at each tick
-  dist-traveled   ; distance traveled each tick adjusted by the zone distance in the city
   kms             ; accumulated distance traveled during the decision period
   home-location   ; patch in the assigned commune of origin
   workplace       ; patch in the assigned commune of destination
+  dist-home-work  ; Distance home - workplace
   safety          ; 1= road accident, 0= no road accident
   security        ; 1= personal security incident, 0= no personal security incident
   safety-mot      ; safety score used for satisfaction function mot
@@ -113,6 +115,14 @@ people-own[
   comfort-car     ; comfort score used for satisfaction function car (percepction towards car)
   comfort-pub     ; comfort score used for satisfaction function pub (percepction towards pub)
   comfort         ; level of comfort perception towards current mode
+  time-m          ; time of travel if the person is using a motorcycle
+  time-c          ; time of travel if the person is using a car
+  time-p          ; time of travel if the person is using public transit
+  time            ; time of travel with the current mode
+  time-mot        ; time score used for satisfaction function mot
+  time-car        ; time score used for satisfaction function car
+  time-pub        ; time score used for satisfaction function pub
+  wait-time-p     ; waiting time for public transit users
 ]
 
 links-own [
@@ -135,11 +145,11 @@ to setup
   ;set time 0
   reset-ticks
   resize-world 0 149 0 149 set-patch-size 5
-  ;Load Vector Boundary my-cvs-dataset
+  ;Load Vector Boundary my-csv-dataset
   ;set my-gis-dataset gis:load-dataset "Data/test.shp"
   ;set my-gis-dataset gis:load-dataset "data/raw_data/shp/cali_community_wgs84.shp"
   set my-gis-dataset gis:load-dataset "cali_community_demo_wgs84.shp"
-  set my-cvs-dataset csv:from-file "inputs.csv" ; imports values for parameters
+  set my-csv-dataset csv:from-file "inputs.csv" ; imports values for parameters
 
   draw ;draw the shp of cali
 
@@ -232,7 +242,7 @@ to initilize-population
   show "loading population"
 
   ;; set global here to make sure it is read correctly
-  set scaling-factor 10
+  set scaling-factor scale-population ; input from interface
 
   ;1:100 1 agent 100 people rounded
   ask patches with [PID > 0] [set occupied? false ]
@@ -655,7 +665,9 @@ to set-destination
     let target-community destination-community
     let matching-patches patches with [CID = target-community]
     set workplace one-of matching-patches
-   face workplace
+    face workplace
+
+    set dist-home-work (distance workplace)
 
 
   ]
@@ -769,9 +781,9 @@ end
 
 to set-speed
 
-  let average-speed-m first (item 0 my-cvs-dataset)
-  let average-speed-c first (item 1 my-cvs-dataset)
-  let average-speed-p first (item 2 my-cvs-dataset)
+  let average-speed-m first (item 0 my-csv-dataset)
+  let average-speed-c first (item 1 my-csv-dataset)
+  let average-speed-p first (item 2 my-csv-dataset)
 
   show average-speed-m
   show average-speed-c
@@ -791,42 +803,45 @@ to set-transportation-info-based-on-type
 
 
  ; Asignation of initial scores (0 - 1) to the acquisition cost for each transport mode
-  set cost-buy-mot first (item 3 my-cvs-dataset)
-  set cost-buy-car first (item 4 my-cvs-dataset)
-  set cost-buy-pub first (item 5 my-cvs-dataset)
+  set cost-buy-mot first (item 3 my-csv-dataset)
+  set cost-buy-car first (item 4 my-csv-dataset)
+  set cost-buy-pub first (item 5 my-csv-dataset)
 
 ; Asignation of initial scores (0 - 1) to the operation fixed cost for each transport mode
-  set costf-op-mot first (item 6 my-cvs-dataset)
-  set costf-op-car first (item 7 my-cvs-dataset)
-  set costf-op-pub first (item 8 my-cvs-dataset)
+  set costf-op-mot first (item 6 my-csv-dataset)
+  set costf-op-car first (item 7 my-csv-dataset)
+  set costf-op-pub first (item 8 my-csv-dataset)
 
 ; Asignation of initial scores (0-1) to the comfort for each transport mode
-  set comfort-m first (item 9 my-cvs-dataset)
-  set comfort-c first (item 10 my-cvs-dataset)
-  set comfort-p first (item 11 my-cvs-dataset)
+  set comfort-m first (item 9 my-csv-dataset)
+  set comfort-c first (item 10 my-csv-dataset)
+  set comfort-p first (item 11 my-csv-dataset)
 
 ; Gasoline price USD
-  set gas-price first (item 12 my-cvs-dataset);
+  set gas-price first (item 12 my-csv-dataset);
 
 ; Efficiency of transport mode km/gal
-  set eff-mot first (item 13 my-cvs-dataset)
-  set eff-car first (item 14 my-cvs-dataset)
+  set eff-mot first (item 13 my-csv-dataset)
+  set eff-car first (item 14 my-csv-dataset)
 
 ; Emissions
-  set emi-mot first (item 15 my-cvs-dataset)
-  set emi-car first (item 16 my-cvs-dataset)
-  set emi-pub first (item 17 my-cvs-dataset)
+  set emi-mot first (item 15 my-csv-dataset)
+  set emi-car first (item 16 my-csv-dataset)
+  set emi-pub first (item 17 my-csv-dataset)
 
 ; Accident rate
-  set acc-rate-mot first (item 18 my-cvs-dataset)
-  set acc-rate-car first (item 19 my-cvs-dataset)
-  set acc-rate-pub first (item 20 my-cvs-dataset)
+  set acc-rate-mot first (item 18 my-csv-dataset)
+  set acc-rate-car first (item 19 my-csv-dataset)
+  set acc-rate-pub first (item 20 my-csv-dataset)
 
 ; Insecurity rates of transport modes
-  set insecur-m first (item 21 my-cvs-dataset)
-  set insecur-c first (item 22 my-cvs-dataset)
-  set insecur-p first (item 23 my-cvs-dataset)
+  set insecur-m first (item 21 my-csv-dataset)
+  set insecur-c first (item 22 my-csv-dataset)
+  set insecur-p first (item 23 my-csv-dataset)
 
+; Cost Increments
+  set buy-increase-m first (item 24 my-csv-dataset)
+  set buy-increase-c first (item 25 my-csv-dataset)
 
 
 end
@@ -858,7 +873,7 @@ to go
   commute
   update-safety
   update-security
-
+  update-time
 
    if ticks > 1
   [
@@ -883,8 +898,6 @@ to go
 
 end
 
-
-; SAFETY CALCULATION EVERY TICK
 
 
 to commute
@@ -940,8 +953,8 @@ to commute
 
 
     ;
-     if t-type = 1 [set speed speed-mot]
-     if t-type = 2 [set speed speed-car]
+     if t-type = 1 [set speed speed-car]
+     if t-type = 2 [set speed speed-mot]
      if t-type = 3 [set speed speed-pub]
 
         (ifelse
@@ -966,10 +979,9 @@ to commute
    [fd 1 * speed]
    [move-to workplace]
 
-
+; calculate distance traveled
 
  set dist-trip distancexy start-x start-y
- set dist-traveled dist-trip
  set kms ((distance home-location))
 
   ]
@@ -977,6 +989,8 @@ to commute
 
 end
 
+
+; SAFETY CALCULATION EVERY TICK
 to update-safety
 
  ; Resets accidents every tick
@@ -993,20 +1007,20 @@ to update-safety
  ; Probability of having road accidents
 
   ask people with [t-type = 1]
-   [ifelse ((random-float 1 <= (acc-rate-mot * 1.8)) and gender = 1 ) ;and  age < 35 and age > 20 )  ; I LET THE INCREASE IN RATE FOR MALE AS IT WAS BEFORE THE METTING, BECAUSE IT SHOULD BE HIGHER FOR MEN ONLY IN THIS RANGE OF AGE. THE BASE WILL BE THE REST OF MEN AND FEMALE WILL HAVE A REDUCE RATE.
+   [ifelse ((random-float 1 <= (acc-rate-car * 1.5)) and gender = 1 ) ;and  age < 35 and age > 20 )  ; THE RATE FOR MEN USING CAR IS ALSO HIGHER FOR THOSE BETWEEN 20-35, BUT LOWER THAN YOUNG MALES IN MOTORCYCLES
       [set safety 1 ] ; young males are more prone to have accidents
-    [ifelse (random-float 1 <= (acc-rate-mot) and gender = 1 )
+    [ifelse (random-float 1 <= (acc-rate-car) and gender = 1 )
         [set safety 1]
-        [if ((random-float 1 <= (acc-rate-mot * 0.8)) and gender = 2)
+        [if ((random-float 1 <= (acc-rate-car * 0.8)) and gender = 2)
           [set safety 1]
         ]
     ]
    ]
 
   ask people with [t-type = 2]
-   [ifelse ((random-float 1 <= (acc-rate-car * 1.5)) and gender = 1 ) ;and  age < 35 and age > 20 ) ; THE RATE FOR MEN USING CAR IS ALSO HIGHER FOR THOSE BETWEEN 20-35, BUT LOWER THAN YOUNG MALES IN MOTORCYCLES
+   [ifelse ((random-float 1 <= (acc-rate-mot * 1.8)) and gender = 1 ) ;and  age < 35 and age > 20 ) ; I LET THE INCREASE IN RATE FOR MALE AS IT WAS BEFORE THE METTING, BECAUSE IT SHOULD BE HIGHER FOR MEN ONLY IN THIS RANGE OF AGE. THE BASE WILL BE THE REST OF MEN AND FEMALE WILL HAVE A REDUCE RATE.
         [set safety 1 ] ; young males are more prone to have accidents
-    [ifelse  (random-float 1 <= acc-rate-car and gender = 1)
+    [ifelse  (random-float 1 <= acc-rate-mot and gender = 1)
         [set safety 1]
         [if ((random-float 1 <= (acc-rate-mot * 0.8)) and gender = 2)
          [set safety 1]
@@ -1032,7 +1046,7 @@ end
 
 
 
-; SECURITY CALCULATION EVRY TICK
+; SECURITY CALCULATION AT EVERY TICK
 to update-security
 
  ; Resets incidents every tick
@@ -1057,10 +1071,10 @@ to update-security
 
  ; Probability of having personal security incidents
   ask people with [t-type = 1]
-    [if random-float 1 <= insecur-m [set security 1]]
+    [if random-float 1 <= insecur-c [set security 1]]
 
   ask people with [t-type = 2]
-    [if random-float 1 <= insecur-c [set security 1]]
+    [if random-float 1 <= insecur-m [set security 1]]
 
   ask people with [t-type = 3]
     [if random-float 1 <= insecur-p [set security 1]]
@@ -1068,8 +1082,8 @@ to update-security
  ; Checks if people in the network have experienced insecurity incidents
   ask people
    [
-    let inc-nw-m count link-neighbors with [t-type = 1 and security = 1]
-    let inc-nw-c count link-neighbors with [t-type = 2 and security = 1]
+    let inc-nw-c count link-neighbors with [t-type = 1 and security = 1]
+    let inc-nw-m count link-neighbors with [t-type = 2 and security = 1]
     let inc-nw-p count link-neighbors with [t-type = 3 and security = 1]
 
     ; Accumulates incidents by mode in the network
@@ -1080,8 +1094,8 @@ to update-security
   ]
 
     ; Counts incidents in the system
-     let inc-mot (count people with [security = 1 and t-type = 1] )
-     let inc-car (count people with [security = 1 and t-type = 2] )
+     let inc-car (count people with [security = 1 and t-type = 1] )
+     let inc-mot (count people with [security = 1 and t-type = 2] )
      let inc-pub (count people with [security = 1 and t-type = 3] )
 
     ; Accumulates incidents in the system by decision period
@@ -1092,6 +1106,49 @@ to update-security
 
 end
 
+; TIME CALCULATION AT EVERY TICK
+
+to update-time
+
+ask people
+  [
+   ; Resets the accumulated time for the new decision period
+    if (ticks mod 30) = 1
+     [set time-m 0
+      set time-c 0
+      set time-p 0]
+
+   ; Calculation of equivalent total travel time by transport mode per tick (time that agent would take to make the complete trip with the current speed) (este cambio en el cálculo se hizo para que las cortas distancias recorridas a bajas velocidades no dieran un tiempo muy corto, aparentemente bueno para el usuario)
+    let time-m-tick (dist-home-work / speed-mot / 100 * 60)  ;"/100" adjusts speed parameter to km/h "*60" adjuts time in hours to minutes
+    let time-c-tick (dist-home-work / speed-car / 100 * 60)
+    let time-p-tick (dist-home-work / speed-pub / 100 * 60)
+
+
+   ; Calculation of waiting time for Public transit (per decision period)
+    set capacity-public   first (item 26 my-csv-dataset) ; number of passengers that the system can move
+    set reg-speed-pub     first (item 27 my-csv-dataset) ; average regular speed of public system with the current capacity
+    set default-wait-time first (item 28 my-csv-dataset) ; defuault waiting time in the public system at normal capacity
+
+    let bus-passengers (count people with [t-type = 3])
+    let wait-turns (bus-passengers / capacity-public) ; indicates the number of turns people need to wait to catch a bus
+    let relative-speed (reg-speed-pub / speed-pub ) ; if current speed in the public system is lower than regular speed at the current capacity, people need to wait more
+
+    set wait-time-p ((random-normal  default-wait-time  1) * relative-speed  * wait-turns)  ; default wait time with the expected congestion at peak hour affected by the difference in speed with the current situation
+     ;in the street multiplied by the number of turns passengers need to wait to catch a bus due to the congestion in the public system
+
+   ; Calculation of accumulated time to calculate the average time of travel per decision period
+    set time-m (time-m + time-m-tick)
+    set time-c (time-c + time-c-tick)
+    set time-p (time-p + time-p-tick + wait-time-p)
+
+   ; Updates time for people according to the transport mode
+    if t-type = 1  [set time (time-c / 30)] ;"/30" calculates the average time to complete the commute home-work
+    if t-type = 2  [set time (time-m / 30)]
+    if t-type = 3  [set time (time-p / 30)]
+
+  ]
+
+end
 
 
 to update-scores-tech-attributes
@@ -1159,14 +1216,14 @@ to update-scores-tech-attributes
  ; UPDATE POLLUTION SCORES (CO2 emissions)
 
     if t-type = 1
-      [set pollution (kms * emi-mot)]
-    if t-type = 2
       [set pollution (kms * emi-car)]
+    if t-type = 2
+      [set pollution (kms * emi-mot)]
     if t-type = 3
       [set pollution (kms * emi-pub)]
 
-    let emissions-mot sum [pollution] of people with [t-type = 1]
-    let emissions-car sum [pollution] of people with [t-type = 2]
+    let emissions-car sum [pollution] of people with [t-type = 1]
+    let emissions-mot sum [pollution] of people with [t-type = 2]
     let emissions-pub sum [pollution] of people with [t-type = 3]
     let sum-emissions (emissions-mot + emissions-car + emissions-pub) ; total emissions of the system
 
@@ -1196,12 +1253,27 @@ to update-scores-tech-attributes
 
 
      if t-type = 1
-      [set comfort comfort-mot]
-     if t-type = 2
       [set comfort comfort-car]
+     if t-type = 2
+      [set comfort comfort-mot]
      if t-type = 3
       [set comfort comfort-pub]
 
+
+  ; UPDATE TIME SCORES
+
+   ;calaculation of time score based on possible time with other modes
+
+
+    let max-time max [time] of people    ; max time in the system
+    let min-time min [time] of people    ; min time in the system
+
+    ;show max-time
+
+
+    set time-mot (1 - ((time-m / 30 - min-time) / (max-time - min-time)))
+    set time-car (1 - ((time-c / 30 - min-time) / (max-time - min-time)))
+    set time-pub (1 - ((time-p / 30 - min-time) / (max-time - min-time)))
 
   ]
 
@@ -1607,9 +1679,9 @@ to-report global-clustering-coefficient
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-84
+114
 10
-842
+872
 769
 -1
 -1
@@ -1651,9 +1723,9 @@ NIL
 1
 
 MONITOR
-849
+879
 57
-1053
+1083
 102
 Male
 count people with [gender = 1]
@@ -1662,9 +1734,9 @@ count people with [gender = 1]
 11
 
 MONITOR
-849
+879
 103
-1053
+1083
 148
 Female
 count people with [gender = 2]
@@ -1673,9 +1745,9 @@ count people with [gender = 2]
 11
 
 MONITOR
-849
+879
 11
-943
+973
 56
 NIL
 count people
@@ -1684,9 +1756,9 @@ count people
 11
 
 MONITOR
-849
+879
 155
-1093
+1123
 200
 NIL
 count people with [h-social-type = 1]
@@ -1695,9 +1767,9 @@ count people with [h-social-type = 1]
 11
 
 MONITOR
-849
+879
 208
-1093
+1123
 253
 NIL
 count people with [h-social-type = 2]
@@ -1706,9 +1778,9 @@ count people with [h-social-type = 2]
 11
 
 MONITOR
-849
+879
 260
-1093
+1123
 305
 NIL
 count people with [h-social-type = 3]
@@ -1717,9 +1789,9 @@ count people with [h-social-type = 3]
 11
 
 MONITOR
-849
+879
 308
-930
+960
 353
 NIL
 count links
@@ -1728,9 +1800,9 @@ count links
 11
 
 MONITOR
-848
+878
 365
-1153
+1183
 410
 NIL
 count people with [destination-community = 1]
@@ -1739,9 +1811,9 @@ count people with [destination-community = 1]
 11
 
 MONITOR
-849
+879
 415
-1154
+1184
 460
 NIL
 count people with [destination-community = 2]
@@ -1750,9 +1822,9 @@ count people with [destination-community = 2]
 11
 
 MONITOR
-849
+879
 464
-1154
+1184
 509
 NIL
 count people with [destination-community = 3]
@@ -1761,9 +1833,9 @@ count people with [destination-community = 3]
 11
 
 MONITOR
-849
+879
 512
-1162
+1192
 557
 NIL
 count people with [destination-community = 22]
@@ -1789,9 +1861,9 @@ NIL
 1
 
 MONITOR
-851
+881
 561
-1016
+1046
 606
 NIL
 global-clustering-coefficient
@@ -1817,9 +1889,9 @@ NIL
 1
 
 MONITOR
-851
+881
 609
-916
+946
 654
 accidents
 count people with [safety = 1]
@@ -1828,9 +1900,9 @@ count people with [safety = 1]
 11
 
 MONITOR
-921
+951
 609
-983
+1013
 654
 incidents
 count people with [security = 1]
@@ -1839,9 +1911,9 @@ count people with [security = 1]
 11
 
 MONITOR
-1101
+1131
 154
-1299
+1329
 199
 Cars
 count people with [t-type = 1]
@@ -1850,9 +1922,9 @@ count people with [t-type = 1]
 11
 
 MONITOR
-1101
+1131
 207
-1299
+1329
 252
 Moto-Bike
 count people with [t-type = 2]
@@ -1861,9 +1933,9 @@ count people with [t-type = 2]
 11
 
 MONITOR
-1103
+1133
 260
-1160
+1190
 305
 Bus
 count people with [t-type = 1]
@@ -1872,9 +1944,9 @@ count people with [t-type = 1]
 11
 
 MONITOR
-1059
+1089
 593
-1129
+1159
 638
 men 1524
 count people with [gender = 1 and age > 14 and age < 25]
@@ -1883,9 +1955,9 @@ count people with [gender = 1 and age > 14 and age < 25]
 11
 
 MONITOR
-1147
+1177
 595
-1233
+1263
 640
 women 1524
 count people with [gender = 2 and age > 14 and age < 25]
@@ -1894,9 +1966,9 @@ count people with [gender = 2 and age > 14 and age < 25]
 11
 
 MONITOR
-1183
+1213
 529
-1248
+1278
 574
 men2459
 count people with [gender = 1 and age > 24 and age < 60]
@@ -1933,9 +2005,9 @@ deviation
 Number
 
 MONITOR
-860
+890
 667
-917
+947
 712
 acc-car
 acc-mot-count
@@ -1944,9 +2016,9 @@ acc-mot-count
 11
 
 MONITOR
-924
+954
 666
-984
+1014
 711
 acc-mot
 acc-car-count
@@ -1955,15 +2027,26 @@ acc-car-count
 11
 
 MONITOR
-991
+1021
 666
-1050
+1080
 711
 acc-pub
 acc-pub-count
 17
 1
 11
+
+INPUTBOX
+0
+258
+86
+318
+scale-population
+10.0
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
