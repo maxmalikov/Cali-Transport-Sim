@@ -47,7 +47,11 @@ globals[
   capacity-public  ; passengers capcity in the public system
   reg-speed-pub    ; regular speed of public system with current capacity
   default-wait-time; current waiting time of the system, minutes calculated with the numer of buses coming per hour  (60 / rate of buses)
-
+  p-buy p-ope p-saf p-sec p-com p-tim p-pol ;Weights for low-income people
+  p-buy2 p-ope2 p-saf2 p-sec2 p-com2 p-tim2 p-pol2 ;Weights for middle-income people
+  p-buy3 p-ope3 p-saf3 p-sec3 p-com3 p-tim3 p-pol3 ;Weights for high-income people
+  alpha beta ;Uncertainty Parameters
+  commitment
 ]
 
 ;---------------Patch Attributes---------------
@@ -123,6 +127,23 @@ people-own[
   time-car        ; time score used for satisfaction function car
   time-pub        ; time score used for satisfaction function pub
   wait-time-p     ; waiting time for public transit users
+  uncertainty-threshold   ; level of uncertaintiy tolerated
+  satisfaction-threshold  ; level of satisfaction people wish to experiment with the trips
+  satisfaction-mot; travel satisfaction if the person is using a motorcycle
+  satisfaction-car; travel satisfaction if the person is using a car
+  satisfaction-pub; travel satisfaction if the person is using public transportation
+  w-buy w-ope w-saf w-sec w-com w-tim w-pol ; weights (level of importance) for attributes of transport modes buy= purchase, ope= operation, saf= road safety, sec= personal security, com= comfort, tim= time of travel, pol= pollution
+  satisfaction    ; calculated in every period of decision according to needs satisfied with transport modes
+  uncertainty     ; calculated in every period of decision according to the experience with transport modes
+  neighborsmymode ; number of neighbors with the same agent's transport mode
+  experience-mot  ; # of times that motorcycle has been selected
+  experience-car  ; # of times that car mode has been selected
+  experience-pub  ; # of times that public transit has been selected
+  experience      ; experience with the current transport mode
+  type-choice     ; according to the CONSUMAT model "repetition", "imitation", "deliberation", "inquiring"
+  utility         ; intermediate calculation of satisfaction use by inquirers
+  car-owner     ; 1-yes, 0-no
+  moto-owner    ; 1-yes, 0-no
 ]
 
 links-own [
@@ -155,7 +176,7 @@ to setup
 
   ;1 setup population
   initilize-population
- ; set-gender
+
   set-h-social-type
   distribute-people
 
@@ -163,8 +184,14 @@ to setup
 
   set-transportation-type
 
+  set-uncertainty-threshold
+
+  set-satisfaction-threshold
+
+  set-weights
 
   set-speed
+
 
 
   ;create-small-world-network
@@ -773,10 +800,280 @@ to set-transportation-type
     set t-type 3 ;bus
 
   ]
+
+  let mode-prob random-float 1
+
+  ask people with [t-type = 0]
+[
+
+  ifelse mode-prob <= 0.4  [set t-type 1]
+          [ifelse mode-prob <= 0.25 [set t-type 2]
+              [set t-type 3]]
+
+  ]
+
+
   ask people
   [set-transportation-info-based-on-type]
 
 end
+
+to set-uncertainty-threshold ; level of uncertainty regarding the transport mode that is accepted by people
+
+  ask people with [t-type = 1]
+  [
+    let uncertm -1
+    while [uncertm < 0 or uncertm > 1]
+     [
+      set uncertm random-normal Uncert-m (Uncert-m * deviation)
+     ]
+ ;   show uncertm
+       set uncertainty-threshold uncertm
+  ]
+
+ ask people with [t-type = 2]
+  [
+    let uncertc -1
+    while [uncertc < 0 or uncertc > 1]
+     [
+      set uncertc random-normal Uncert-c (Uncert-c * deviation)
+     ]
+    ;show uncertc
+       set uncertainty-threshold uncertc
+   ]
+
+
+ ask people with [t-type = 3]
+  [
+    let uncertp -1
+    while [uncertp < 0 or uncertp > 1]
+     [
+      set uncertp random-normal Uncert-p (Uncert-p * deviation)
+     ]
+   ; show uncertp
+       set uncertainty-threshold uncertp
+  ]
+
+
+end
+
+to set-satisfaction-threshold ; level of satisfaction that people would like to have with their transport mode ;
+
+  ask people with [t-type = 1]
+  [
+    let satisfactm -1
+    while [satisfactm < 0 or satisfactm > 1]
+     [
+      set satisfactm random-normal Satisf-m (Satisf-m * deviation)
+     ]
+   ; show satisfactm
+       set satisfaction-threshold satisfactm
+  ]
+
+    ask people with [t-type = 2]
+  [
+    let satisfactc -1
+    while [satisfactc < 0 or satisfactc > 1]
+     [
+      set satisfactc random-normal Satisf-c (Satisf-c * deviation)
+     ]
+  ;  show satisfactc
+       set satisfaction-threshold satisfactc
+  ]
+
+
+    ask people with [t-type = 3]
+  [
+    let satisfactp -1
+    while [satisfactp < 0 or satisfactp > 1]
+     [
+      set satisfactp random-normal Satisf-p (Satisf-p * deviation)
+     ]
+  ;  show satisfactp
+       set satisfaction-threshold satisfactp
+  ]
+
+
+end
+
+
+to set-weights ; level of importance that people give to the transportation attibutes according their socio-economic situation
+
+ ; assigns points for each atribute in low socio-economic status
+   ask people with [h-social-type = 1 ]
+    [weights-socio-1]
+ ; assigns points for each atribute in middle socio-economic status
+   ask people with [h-social-type = 2 ]
+    [weights-socio-2]
+ ; assigns points to people in high socio-economic status
+   ask people with [h-social-type = 3 ]
+    [weights-socio-3]
+
+
+end
+
+to weights-socio-1
+
+
+   ; Weights for low-income people
+  set p-buy first (item 29 my-csv-dataset)
+  set p-ope first (item 30 my-csv-dataset)
+  set p-saf first (item 31 my-csv-dataset)
+  set p-sec first (item 32 my-csv-dataset)
+  set p-com first (item 33 my-csv-dataset)
+  set p-tim first (item 34 my-csv-dataset)
+  set p-pol first (item 35 my-csv-dataset)
+
+    ; assigns points with a normal distribution for each attribute
+    let points-buy -1
+    while [points-buy < 0 or points-buy > 100]
+     [set points-buy random-normal p-buy (p-buy * 0.1)]
+
+    let points-ope -1
+    while [points-ope < 0 or points-ope > 100]
+     [set points-ope random-normal p-ope (p-ope * 0.1)]
+
+    let points-saf -1
+     while [points-saf < 0 or points-saf > 100]
+    [set points-saf random-normal p-saf (p-saf * 0.1)]
+
+    let points-sec -1
+    while [points-sec < 0 or points-sec > 100]
+     [set points-sec random-normal p-sec (p-sec * 0.1)]
+
+    let points-com -1
+    while [points-com < 0 or points-com > 100]
+     [set points-com random-normal p-com (p-com * 0.1)]
+
+    let points-tim -1
+    while [points-tim < 0 or points-tim > 100]
+     [set points-tim random-normal p-tim (p-tim * 0.1)]
+
+    let points-pol -1
+    while [points-pol < 0 or points-pol > 100]
+     [set points-pol random-normal p-pol (p-pol * 0.1)]
+
+    ; converts points in percentages
+    let pointstotal points-buy + points-ope + points-saf + points-sec + points-com + points-tim + points-pol
+
+    set w-buy (points-buy / pointstotal)
+    set w-ope (points-ope / pointstotal)
+    set w-saf (points-saf / pointstotal)
+    set w-sec (points-sec / pointstotal)
+    set w-com (points-com / pointstotal)
+    set w-tim (points-tim / pointstotal)
+    set w-pol (points-pol / pointstotal)
+
+ end
+
+to weights-socio-2
+
+
+ ; Weights for middle-income people
+  set p-buy2 first (item 36 my-csv-dataset)
+  set p-ope2 first (item 37 my-csv-dataset)
+  set p-saf2 first (item 38 my-csv-dataset)
+  set p-sec2 first (item 39 my-csv-dataset)
+  set p-com2 first (item 40 my-csv-dataset)
+  set p-tim2 first (item 41 my-csv-dataset)
+  set p-pol2 first (item 42 my-csv-dataset)
+
+    ; assigns points with a normal distribution for each attribute
+    let points-buy2 -1
+    while [points-buy2 < 0 or points-buy2 > 100]
+     [set points-buy2 random-normal p-buy2 (p-buy2 * 0.1)]
+
+    let points-ope2 -1
+    while [points-ope2 < 0 or points-ope2 > 100]
+     [set points-ope2 random-normal p-ope2 (p-ope2 * 0.1)]
+
+    let points-saf2 -1
+    while [points-saf2 < 0 or points-saf2 > 100]
+     [set points-saf2 random-normal p-saf2 (p-saf2 * 0.1)]
+
+    let points-sec2 -1
+    while [points-sec2 < 0 or points-sec2 > 100]
+     [set points-sec2 random-normal p-sec2 (p-sec2 * 0.1)]
+
+    let points-com2 -1
+    while [points-com2 < 0 or points-com2 > 100]
+     [set points-com2 random-normal p-com2 (p-com2 * 0.1)]
+
+    let points-tim2 -1
+    while [points-tim2 < 0 or points-tim2 > 100]
+     [set points-tim2 random-normal p-tim2 (p-tim2 * 0.1)]
+
+    let points-pol2 -1
+    while [points-pol2 < 0 or points-pol2 > 100]
+     [set points-pol2 random-normal p-pol2 (p-pol2 * 0.1)]
+
+    ; converts points in percentages
+    let pointstotal2 points-buy2 + points-ope2 + points-saf2 + points-sec2 + points-com2 + points-tim2 + points-pol2
+
+    set w-buy (points-buy2 / pointstotal2)
+    set w-ope (points-ope2 / pointstotal2)
+    set w-saf (points-saf2 / pointstotal2)
+    set w-sec (points-sec2 / pointstotal2)
+    set w-com (points-com2 / pointstotal2)
+    set w-tim (points-tim2 / pointstotal2)
+    set w-pol (points-pol2 / pointstotal2)
+
+ end
+
+to weights-socio-3
+
+
+ ; Weights for high-income people
+  set p-buy3 first (item 43 my-csv-dataset)
+  set p-ope3 first (item 44 my-csv-dataset)
+  set p-saf3 first (item 45 my-csv-dataset)
+  set p-sec3 first (item 46 my-csv-dataset)
+  set p-com3 first (item 47 my-csv-dataset)
+  set p-tim3 first (item 48 my-csv-dataset)
+  set p-pol3 first (item 49 my-csv-dataset)
+
+    ; assigns points with a normal distribution for each attribute
+    let points-buy3 -1
+    while [points-buy3 < 0 or points-buy3 > 100]
+     [set points-buy3 random-normal p-buy3 (p-buy3 * 0.1)]
+
+    let points-ope3 -1
+    while [points-ope3 < 0 or points-ope3 > 100]
+     [set points-ope3 random-normal p-ope3 (p-ope3 * 0.1)]
+
+    let points-saf3 -1
+    while [points-saf3 < 0 or points-saf3 > 100]
+     [set points-saf3 random-normal p-saf3 (p-saf3 * 0.1)]
+
+    let points-sec3 -1
+    while [points-sec3 < 0 or points-sec3 > 100]
+     [set points-sec3 random-normal p-sec3 (p-sec3 * 0.1)]
+
+    let points-com3 -1
+    while [points-com3 < 0 or points-com3 > 100]
+     [set points-com3 random-normal p-com3 (p-com3 * 0.1)]
+
+    let points-tim3 -1
+    while [points-tim3 < 0 or points-tim3 > 100]
+     [set points-tim3 random-normal p-tim3 (p-tim3 * 0.1)]
+
+    let points-pol3 -1
+    while [points-pol3 < 0 or points-pol3 > 100]
+     [set points-pol3 random-normal p-pol3 (p-pol3 * 0.1)]
+
+    ; converts points in percentages
+    let pointstotal3 points-buy3 + points-ope3 + points-saf3 + points-sec3 + points-com3 + points-tim3 + points-pol3
+
+    set w-buy (points-buy3 / pointstotal3)
+    set w-ope (points-ope3 / pointstotal3)
+    set w-saf (points-saf3 / pointstotal3)
+    set w-sec (points-sec3 / pointstotal3)
+    set w-com (points-com3 / pointstotal3)
+    set w-tim (points-tim3 / pointstotal3)
+    set w-pol (points-pol3 / pointstotal3)
+
+end
+
 
 
 to set-speed
@@ -883,8 +1180,21 @@ to go
     ; procedures that run every decision period
      [
       update-scores-tech-attributes ; calulates values for tech attributes to be used in satisfaction update for each agent in every decision tick
+      update-satisfaction    ; updates values of satisfcation for each agent in every tick
+      update-experience      ; number of times that a person has chosen every transport mode over the time steps
+      update-uncertainty     ; updates uncertainty level for each agent in every tick
+      update-type-choice     ; according to satisfaction and uncertainty applies the decision making rule
       ask people [move-to home-location]
     ]
+
+     if (ticks mod 30 = 1)
+   ; procedures that run at the beggining of the new decision period
+     [
+      choice                 ; Breaks population into groups according to their type of choice: "repetition", "imitation", "deliberation", "inquiring"
+      update-ownership       ; uptades car or motrocycle ownership depending on mode choice
+      update-age-people      ; updates people age
+     ]
+
   ]
 
   tick
@@ -1513,6 +1823,199 @@ to create-preferential-network
 
 end
 
+to update-satisfaction
+  ask people
+   [
+    set satisfaction-mot (w-buy * cost-buy-mot + w-ope * cost-op-mot + w-saf * safety-mot + w-sec * security-mot + w-com * comfort-mot + w-tim * time-mot + w-pol * pollution-tot)
+    set satisfaction-car (w-buy * cost-buy-car + w-ope * cost-op-car + w-saf * safety-car + w-sec * security-car + w-com * comfort-car + w-tim * time-car + w-pol * pollution-tot)
+    set satisfaction-pub (w-buy * cost-buy-pub + w-ope * cost-op-pub + w-saf * safety-pub + w-sec * security-pub + w-com * comfort-pub + w-tim * time-pub + w-pol * pollution-tot)
+   ]
+
+  ask people with [t-type = 1]
+   [set satisfaction satisfaction-mot]
+  ask people with [t-type = 2]
+   [set satisfaction satisfaction-car]
+  ask people with [t-type = 3]
+   [set satisfaction satisfaction-pub]
+
+end
+
+to update-experience
+ ask people
+  [
+   if t-type = 1 [set experience-mot experience-mot + 1]
+   if t-type = 2 [set experience-car experience-car + 1]
+   if t-type = 3 [set experience-pub experience-pub + 1]
+  ]
+end
+
+to update-uncertainty
+
+   ; Uncertainty Parameters to calculate experience
+  set alpha first (item 50 my-csv-dataset)
+  set beta  first (item 51 my-csv-dataset)
+
+  ask people
+  [
+   ; calculates how many neihgbors have the same transport mode
+    let mymode t-type
+    set neighborsmymode count link-neighbors with [t-type = mymode]
+
+   ; calculates the proportion of times that the selected mode has choosen during the simulation time
+    ifelse t-type = 1
+     [set experience experience-mot]
+     [ifelse t-type = 2
+      [set experience experience-car]
+      [set experience experience-pub]]
+    let myexperience (experience / (experience-mot + experience-car + experience-pub))
+
+   ; calculates uncertainty as the weighted average of the deviation of own experience and neighbors' experience. Alpha and Beta correspond to Hosftede variables.
+    set uncertainty  ((alpha * (1 - myexperience)) + (beta * (1 - neighborsmymode / count link-neighbors)))
+
+  ]
+end
+
+
+to update-type-choice
+  ask people with [satisfaction > satisfaction-threshold and uncertainty <= uncertainty-threshold] ; Hof 1 y sat thr 0
+   [set type-choice "repetition" ]; repetition keeps the same transport-mode of the previous period
+
+  ask people with [satisfaction >= satisfaction-threshold and uncertainty > uncertainty-threshold] ; AGREGAR EL IGUAL EN SATISFACTION y quitar de uncertainty Hof 0 y Sat thr 0
+   [set type-choice "imitation"]
+    ;set color white]
+
+  ask people with [satisfaction <= satisfaction-threshold and uncertainty < uncertainty-threshold]  ; Hof 1 y Sat thr 1
+   [set type-choice "deliberation"]
+    ;set color white]
+
+  ask people with [satisfaction < satisfaction-threshold and uncertainty >= uncertainty-threshold] ;  Hof 0 y Sat thr 1
+   [set type-choice "inquiry"]
+    ;set color white]
+end
+
+to choice
+
+ ; only not committed people apply the strategy
+  set commitment first (item 53 my-csv-dataset)
+
+  ask n-of ((1 - commitment) * count (people with [type-choice = "imitation"]  ))  (people with [type-choice = "imitation"])
+   [imitation]
+
+  ask n-of ((1 - commitment) * count (people with [type-choice = "inquiry"]    ))  (people with [type-choice = "inquiry"])
+   [inquiry]
+
+  ask n-of ((1 - commitment) * count (people with [type-choice = "deliberation"])) (people with [type-choice = "deliberation"])
+   [deliberation]
+
+end
+
+to imitation ; transpot-mode chosen according to the most used among links in their net
+  let moto count link-neighbors with [t-type = 1] / count link-neighbors
+  let car  count link-neighbors with [t-type = 2] / count link-neighbors
+  let pub  count link-neighbors with [t-type = 3] / count link-neighbors
+
+  if moto = max (list moto car pub) [set t-type 1 ]
+  if car  = max (list moto car pub) [set t-type 2 ]
+  if pub  = max (list moto car pub) [set t-type 3 ]
+  if moto = car  and moto = pub  [set t-type (1 + random 3)]
+  if moto = car  and moto > pub  [ifelse random-float 1 < 0.5 [set t-type 1] [set t-type 2]]
+  if moto = pub  and moto > car  [ifelse random-float 1 < 0.5 [set t-type 1] [set t-type 3]]
+  if car  = pub  and car  > moto [ifelse random-float 1 < 0.5 [set t-type 2] [set t-type 3]]
+end
+
+to inquiry ; Rational process that involves social interaction. Only evaluates transport modes used by contacts in the own network.
+
+   let mot count link-neighbors with [t-type = 1]
+   let car count link-neighbors with [t-type = 2]
+   let pub count link-neighbors with [t-type = 3]
+   set utility -1
+
+   ; evaluates all the transport modes in the network
+    if inquiry-process = "everybody"
+     [
+      if mot > 0 and car = 0 and pub = 0 [set utility satisfaction-mot]
+      if mot = 0 and car > 0 and pub = 0 [set utility satisfaction-car]
+      if mot = 0 and car = 0 and pub > 0 [set utility satisfaction-pub]
+      if mot > 0 and car > 0 and pub = 0 [set utility max (list satisfaction-mot satisfaction-car)]
+      if mot > 0 and car = 0 and pub > 0 [set utility max (list satisfaction-mot satisfaction-pub)]
+      if mot = 0 and car > 0 and pub > 0 [set utility max (list satisfaction-car satisfaction-pub)]
+      if mot > 0 and car > 0 and pub > 0 [set utility max (list satisfaction-mot satisfaction-car satisfaction-pub)]
+     ]
+
+   ; evaluates the most frequently used transport mode in the network (CREO QUE ESTE CÓDIGO FUNCIONA TAMBIÉN PARA EVALUAR "EVERYBODY")
+    if inquiry-process = "most-used"
+     [
+      if mot = car and mot = pub [set utility one-of (list satisfaction-mot satisfaction-car satisfaction-pub) ]
+      if mot = car and mot > pub [set utility one-of (list satisfaction-mot satisfaction-car)]
+      if mot = pub and mot > car [set utility one-of (list satisfaction-mot satisfaction-pub)]
+      if car = pub and car > mot [set utility one-of (list satisfaction-car satisfaction-pub)]
+      if mot = max (list mot car pub) [set utility satisfaction-mot]
+      if car = max (list mot car pub) [set utility satisfaction-car]
+      if pub = max (list mot car pub) [set utility satisfaction-pub]
+     ]
+
+   ; decisión: if satisfaction with the transport mode compared is higher, then adopts that mode.   adopta sólo si halla una satisfacción mayor que la actual
+    if utility > satisfaction
+     [ ; compares the own utility with the highest utility among the transport modes analized)
+      if utility = satisfaction-mot [set t-type 1 ]
+      if utility = satisfaction-car [set t-type 2 ]
+      if utility = satisfaction-pub [set t-type 3 ]
+     ]
+end
+
+to deliberation ;  this is a rational and individual process of selection. The network doesn't intervene. The final selection occurs trhough a logit function.
+
+
+  let beta1 w-buy
+  let beta2 w-ope
+  let beta3 w-saf
+  let beta4 w-sec
+  let beta5 w-com
+  let beta6 w-tim
+  let beta7 w-pol
+
+  let utility-mot (beta1 * cost-buy-mot + beta2 * cost-op-mot + beta3 * safety-mot + beta4 * security-mot + beta5 * comfort-mot + beta6 * time-mot + beta7 * pollution-tot)
+
+  let utility-car (beta1 * cost-buy-car + beta2 * cost-op-car + beta3 * safety-car + beta4 * security-car + beta5 * comfort-car + beta6 * time-car + beta7 * pollution-tot)
+
+  let utility-pub (beta1 * cost-buy-pub + beta2 * cost-op-pub + beta3 * safety-pub + beta4 * security-pub + beta5 * comfort-pub + beta6 * time-pub + beta7 * pollution-tot)
+
+  let cumulsum exp(utility-mot) + exp(utility-car) + exp(utility-pub)
+
+  let P1 exp(utility-mot) / cumulsum
+
+  let P2 exp(utility-car) / cumulsum
+
+  let P3 exp(utility-pub) / cumulsum
+
+  let choose  random-float (P1 + P2 + P3)
+
+  ifelse choose < P1
+   [set t-type 1 ]
+    [ifelse choose < P1 + P2
+     [set t-type 2 ]
+     [set t-type 3 ]
+    ]
+
+
+end
+
+to update-ownership
+
+    ask people [
+    if t-type = 1 [set moto-owner 1 set car-owner  0]
+    if t-type = 2 [set car-owner  1 set moto-owner 0]
+    if t-type = 3 [set car-owner  0 set moto-owner 0]
+  ]
+
+end
+
+to update-age-people
+ ask people [set age age + 1]
+end
+
+
+
 to create-social-network
   ; seeding the links for preferential attachment
   ask people with [h-social-type = 1]
@@ -1679,9 +2182,9 @@ to-report global-clustering-coefficient
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-114
+199
 10
-872
+957
 769
 -1
 -1
@@ -1723,9 +2226,9 @@ NIL
 1
 
 MONITOR
-879
+964
 57
-1083
+1168
 102
 Male
 count people with [gender = 1]
@@ -1734,9 +2237,9 @@ count people with [gender = 1]
 11
 
 MONITOR
-879
+964
 103
-1083
+1168
 148
 Female
 count people with [gender = 2]
@@ -1745,9 +2248,9 @@ count people with [gender = 2]
 11
 
 MONITOR
-879
+964
 11
-973
+1058
 56
 NIL
 count people
@@ -1756,9 +2259,9 @@ count people
 11
 
 MONITOR
-879
+964
 155
-1123
+1208
 200
 NIL
 count people with [h-social-type = 1]
@@ -1767,9 +2270,9 @@ count people with [h-social-type = 1]
 11
 
 MONITOR
-879
+964
 208
-1123
+1208
 253
 NIL
 count people with [h-social-type = 2]
@@ -1778,9 +2281,9 @@ count people with [h-social-type = 2]
 11
 
 MONITOR
-879
+964
 260
-1123
+1208
 305
 NIL
 count people with [h-social-type = 3]
@@ -1789,9 +2292,9 @@ count people with [h-social-type = 3]
 11
 
 MONITOR
-879
+964
 308
-960
+1045
 353
 NIL
 count links
@@ -1800,9 +2303,9 @@ count links
 11
 
 MONITOR
-878
+963
 365
-1183
+1268
 410
 NIL
 count people with [destination-community = 1]
@@ -1811,9 +2314,9 @@ count people with [destination-community = 1]
 11
 
 MONITOR
-879
+964
 415
-1184
+1269
 460
 NIL
 count people with [destination-community = 2]
@@ -1822,9 +2325,9 @@ count people with [destination-community = 2]
 11
 
 MONITOR
-879
+964
 464
-1184
+1269
 509
 NIL
 count people with [destination-community = 3]
@@ -1833,9 +2336,9 @@ count people with [destination-community = 3]
 11
 
 MONITOR
-879
+964
 512
-1192
+1277
 557
 NIL
 count people with [destination-community = 22]
@@ -1861,9 +2364,9 @@ NIL
 1
 
 MONITOR
-881
+966
 561
-1046
+1131
 606
 NIL
 global-clustering-coefficient
@@ -1889,9 +2392,9 @@ NIL
 1
 
 MONITOR
-881
+966
 609
-946
+1031
 654
 accidents
 count people with [safety = 1]
@@ -1900,9 +2403,9 @@ count people with [safety = 1]
 11
 
 MONITOR
-951
+1036
 609
-1013
+1098
 654
 incidents
 count people with [security = 1]
@@ -1911,9 +2414,9 @@ count people with [security = 1]
 11
 
 MONITOR
-1131
+1216
 154
-1329
+1414
 199
 Cars
 count people with [t-type = 1]
@@ -1922,9 +2425,9 @@ count people with [t-type = 1]
 11
 
 MONITOR
-1131
+1216
 207
-1329
+1414
 252
 Moto-Bike
 count people with [t-type = 2]
@@ -1933,20 +2436,20 @@ count people with [t-type = 2]
 11
 
 MONITOR
-1133
+1218
 260
-1190
+1275
 305
 Bus
-count people with [t-type = 1]
+count people with [t-type = 3]
 17
 1
 11
 
 MONITOR
-1089
+1174
 593
-1159
+1244
 638
 men 1524
 count people with [gender = 1 and age > 14 and age < 25]
@@ -1955,9 +2458,9 @@ count people with [gender = 1 and age > 14 and age < 25]
 11
 
 MONITOR
-1177
+1262
 595
-1263
+1348
 640
 women 1524
 count people with [gender = 2 and age > 14 and age < 25]
@@ -1966,9 +2469,9 @@ count people with [gender = 2 and age > 14 and age < 25]
 11
 
 MONITOR
-1213
+1298
 529
-1278
+1363
 574
 men2459
 count people with [gender = 1 and age > 24 and age < 60]
@@ -2005,9 +2508,9 @@ deviation
 Number
 
 MONITOR
-890
+975
 667
-947
+1032
 712
 acc-car
 acc-mot-count
@@ -2016,9 +2519,9 @@ acc-mot-count
 11
 
 MONITOR
-954
+1039
 666
-1014
+1099
 711
 acc-mot
 acc-car-count
@@ -2027,9 +2530,9 @@ acc-car-count
 11
 
 MONITOR
-1021
+1106
 666
-1080
+1165
 711
 acc-pub
 acc-pub-count
@@ -2047,6 +2550,106 @@ scale-population
 1
 0
 Number
+
+SLIDER
+3
+331
+100
+364
+Uncert-m
+Uncert-m
+0
+1
+0.45
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+3
+368
+100
+401
+Uncert-c
+Uncert-c
+0
+1
+0.4
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+3
+405
+100
+438
+Uncert-p
+Uncert-p
+0
+1
+0.5
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+103
+330
+196
+363
+Satisf-m
+Satisf-m
+0
+1
+0.13
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+102
+368
+196
+401
+Satisf-c
+Satisf-c
+0
+1
+0.09
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+103
+405
+196
+438
+Satisf-p
+Satisf-p
+0
+1
+0.57
+0.01
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+0
+886
+138
+931
+inquiry-process
+inquiry-process
+"everybody" "most-used"
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
