@@ -2395,10 +2395,10 @@ NIL
 1
 
 MONITOR
-1572
-633
-1637
-678
+1418
+754
+1483
+799
 accidents
 count people with [safety = 1]
 17
@@ -2406,10 +2406,10 @@ count people with [safety = 1]
 11
 
 MONITOR
-1642
-633
-1704
-678
+1488
+754
+1550
+799
 incidents
 count people with [security = 1]
 17
@@ -2511,10 +2511,10 @@ deviation
 Number
 
 MONITOR
-1573
-579
-1630
-624
+1419
+700
+1476
+745
 acc-car
 acc-mot-count
 17
@@ -2522,10 +2522,10 @@ acc-mot-count
 11
 
 MONITOR
-1637
-578
-1697
-623
+1483
+699
+1543
+744
 acc-mot
 acc-car-count
 17
@@ -2533,10 +2533,10 @@ acc-car-count
 11
 
 MONITOR
-1704
-578
-1763
-623
+1550
+699
+1609
+744
 acc-pub
 acc-pub-count
 17
@@ -2873,7 +2873,7 @@ NIL
 0.0
 10.0
 0.0
-1.0
+10.0
 true
 false
 "" ""
