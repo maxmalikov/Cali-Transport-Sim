@@ -1216,16 +1216,17 @@ to commute
   [
     let people-around people-here
 
-    let cars count people-around with [t-type = 2]
-    let mot-equiv-car (count people-around with [t-type = 1]) * 0.5
-    let pub-equiv-car (count people-around with [t-type = 1]) * 0.1
+    let cars count people-around with [t-type = 1]
+    let mot-equiv-car (count people-around with [t-type = 2]) * 0.5
+    let pub-equiv-car (count people-around with [t-type = 3]) * 0.05
 
     ;let cars             (count people-here with [t-type = 2]) + (sum [count people-here with [t-type = 2]] of neighbors)          ; neighbors corresponds to the agentset containing the 8 surrounding patches (9 including it self). It is a patch primitive, thats why it's needed to ad people-here of neighbors
     ;let mot-equiv-car  (((count people-here with [t-type = 1]) + (sum [count people-here with [t-type = 1]] of neighbors)) * 0.5) ; 2 motorcycles equivalent
     ;let pub-equiv-car  (((count people-here with [t-type = 3]) + (sum [count people-here with [t-type = 3]] of neighbors)) * 0.05) ; 20 people in 1 bus - UPDATE WHEN FREQUENCY INCREASE
 
     let equiv-cars (cars + mot-equiv-car + pub-equiv-car)
-    set density (equiv-cars * scaling-factor / 2) ; using adjusted number
+   ; set density (equiv-cars * scaling-factor / 2) ; using adjusted number
+    set density (equiv-cars / (22500 / (count people))) ; using adjusted number
     ;(base case: 3 equiv cars x 9 patches = 27 or 4 equiv cars x 9 patches = 36)
 
  ; effect of road accidents
@@ -1287,7 +1288,7 @@ to commute
 
   ifelse distance workplace > (1 * speed)
    [fd 1 * speed]
-   [move-to workplace]
+   [move-to workplace set color black]
 
 ; calculate distance traveled
 
@@ -1317,22 +1318,22 @@ to update-safety
  ; Probability of having road accidents
 
   ask people with [t-type = 1]
-   [ifelse ((random-float 1 <= (acc-rate-car * 1.5)) and gender = 1 ) ;and  age < 35 and age > 20 )  ; THE RATE FOR MEN USING CAR IS ALSO HIGHER FOR THOSE BETWEEN 20-35, BUT LOWER THAN YOUNG MALES IN MOTORCYCLES
+   [ifelse ((random-float 1 <= (acc-rate-car * 1.3)) and (gender = 1 and  age < 35 ))  ; I LET THE INCREASE IN RATE FOR MALE AS IT WAS BEFORE THE METTING, BECAUSE IT SHOULD BE HIGHER FOR MEN ONLY IN THIS RANGE OF AGE. THE BASE WILL BE THE REST OF MEN AND FEMALE WILL HAVE A REDUCED RATE.
       [set safety 1 ] ; young males are more prone to have accidents
     [ifelse (random-float 1 <= (acc-rate-car) and gender = 1 )
         [set safety 1]
-        [if ((random-float 1 <= (acc-rate-car * 0.8)) and gender = 2)
+        [if ((random-float 1 <= (acc-rate-car * 0.5)) and gender = 2) ; reduction in female rate was adjusted according to accident rates 2016-2023
           [set safety 1]
         ]
     ]
    ]
 
   ask people with [t-type = 2]
-   [ifelse ((random-float 1 <= (acc-rate-mot * 1.8)) and gender = 1 ) ;and  age < 35 and age > 20 ) ; I LET THE INCREASE IN RATE FOR MALE AS IT WAS BEFORE THE METTING, BECAUSE IT SHOULD BE HIGHER FOR MEN ONLY IN THIS RANGE OF AGE. THE BASE WILL BE THE REST OF MEN AND FEMALE WILL HAVE A REDUCE RATE.
+   [ifelse ((random-float 1 <= (acc-rate-mot * 1.3)) and (gender = 1 and  age < 35 )) ; THE RATE FOR MEN USING MOTO IS ALSO HIGHER FOR THOSE BETWEEN 15-35
         [set safety 1 ] ; young males are more prone to have accidents
     [ifelse  (random-float 1 <= acc-rate-mot and gender = 1)
         [set safety 1]
-        [if ((random-float 1 <= (acc-rate-mot * 0.8)) and gender = 2)
+        [if ((random-float 1 <= (acc-rate-mot * 0.7)) and gender = 2) ;reduction in female rate was adjusted according to accident rates 2016-2023
          [set safety 1]
         ]
     ]
@@ -1896,7 +1897,7 @@ end
 to choice
 
  ; only not committed people apply the strategy
-  set commitment first (item 53 my-csv-dataset)
+  set commitment first (item 52 my-csv-dataset)
 
   ask n-of ((1 - commitment) * count (people with [type-choice = "imitation"]  ))  (people with [type-choice = "imitation"])
    [imitation]
@@ -2414,9 +2415,9 @@ count people with [security = 1]
 11
 
 MONITOR
-1216
+1219
 154
-1414
+1274
 199
 Cars
 count people with [t-type = 1]
@@ -2425,11 +2426,11 @@ count people with [t-type = 1]
 11
 
 MONITOR
-1216
+1219
 207
-1414
+1274
 252
-Moto-Bike
+Moto
 count people with [t-type = 2]
 17
 1
@@ -2447,10 +2448,10 @@ count people with [t-type = 3]
 11
 
 MONITOR
-1174
-593
-1244
-638
+1211
+597
+1288
+642
 men 1524
 count people with [gender = 1 and age > 14 and age < 25]
 17
@@ -2458,10 +2459,10 @@ count people with [gender = 1 and age > 14 and age < 25]
 11
 
 MONITOR
-1262
-595
-1348
-640
+1294
+596
+1370
+641
 women 1524
 count people with [gender = 2 and age > 14 and age < 25]
 17
@@ -2469,10 +2470,10 @@ count people with [gender = 2 and age > 14 and age < 25]
 11
 
 MONITOR
-1298
-529
-1363
-574
+1210
+648
+1288
+693
 men2459
 count people with [gender = 1 and age > 24 and age < 60]
 17
@@ -2546,7 +2547,7 @@ INPUTBOX
 86
 318
 scale-population
-10.0
+2.0
 1
 0
 Number
@@ -2650,6 +2651,59 @@ inquiry-process
 inquiry-process
 "everybody" "most-used"
 0
+
+PLOT
+1284
+154
+1519
+304
+Users by mode
+Periods
+% of users
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 1 ]) / (count people)]"
+"moto" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 2 ]) / (count people)]"
+"pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 3 ]) / (count people)]"
+
+MONITOR
+1496
+145
+1553
+190
+car
+count people with [t-type = 1] / count people
+2
+1
+11
+
+MONITOR
+1496
+192
+1553
+237
+moto
+count people with [t-type = 2] / count people
+2
+1
+11
+
+MONITOR
+1496
+241
+1553
+286
+pub
+count people with [t-type = 3] / count people
+2
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
