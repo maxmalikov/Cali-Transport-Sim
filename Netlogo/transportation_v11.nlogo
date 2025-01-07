@@ -39,7 +39,7 @@ globals[
   inc-mot-count    ; count of incidents per decision period for motorcycles
   inc-car-count    ; count of incidents per decision period for cars
   inc-pub-count    ; count of incidents per decision period for public transit
-  density          ; excess of equivalent cars in 8 neighbor patches around (calculated over the base case)
+
   pollution-tot    ; score for the pollution of the complete system
   scaling-factor   ; determines how much to divide population for - used in testing.Defined in Initialization Function
   max-costv        ; max variable operating cost in the system, used to calculate op-cost scores
@@ -91,6 +91,7 @@ people-own[
   speed-mot       ; speed affected by congestion for motorcycle
   speed-car       ; speed affected by congestion for car
   speed-pub       ; speed affected by congestion for public
+  density          ; excess of equivalent cars in 8 neighbor patches around (calculated over the base case)
   dist-trip       ; distance ; distance traveled at each tick
   kms             ; accumulated distance traveled during the decision period
   home-location   ; patch in the assigned commune of origin
@@ -2395,9 +2396,9 @@ NIL
 1
 
 MONITOR
-1572
+1630
 633
-1637
+1695
 678
 accidents
 count people with [safety = 1]
@@ -2406,9 +2407,9 @@ count people with [safety = 1]
 11
 
 MONITOR
-1642
+1700
 633
-1704
+1762
 678
 incidents
 count people with [security = 1]
@@ -2511,31 +2512,31 @@ deviation
 Number
 
 MONITOR
-1573
+1631
 579
-1630
+1688
 624
 acc-car
-acc-mot-count
-17
-1
-11
-
-MONITOR
-1637
-578
-1697
-623
-acc-mot
 acc-car-count
 17
 1
 11
 
 MONITOR
-1704
+1695
 578
-1763
+1755
+623
+acc-mot
+acc-mot-count
+17
+1
+11
+
+MONITOR
+1762
+578
+1821
 623
 acc-pub
 acc-pub-count
@@ -2713,7 +2714,7 @@ INPUTBOX
 181
 171
 Time-steps
-10.0
+2.0
 1
 0
 Number
@@ -2855,17 +2856,17 @@ NIL
 0.0
 10.0
 0.0
-10.0
+1.0
 true
 false
 "" ""
 PENS
-"density" 1.0 0 -16777216 true "" "plot mean [density] of turtles"
+"density" 1.0 0 -16777216 true "" "plot mean [density] of people"
 
 PLOT
 1319
 531
-1519
+1552
 681
 speed
 NIL
@@ -2875,13 +2876,24 @@ NIL
 0.0
 1.0
 true
-false
+true
 "" ""
 PENS
 "average" 1.0 0 -10899396 true "" "plot mean [speed] of people"
 "car" 1.0 0 -2674135 true "" "plot mean [speed] of people with [t-type = 1]"
 "moto" 1.0 0 -16777216 true "" "plot mean [speed] of people with [t-type = 2]"
 "pub" 1.0 0 -13345367 true "" "plot mean [speed] of people with [t-type = 3]"
+
+MONITOR
+1358
+717
+1447
+762
+In destination
+count people  / count people
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
