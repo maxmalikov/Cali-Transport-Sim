@@ -145,6 +145,7 @@ people-own[
   utility         ; intermediate calculation of satisfaction use by inquirers
   car-owner     ; 1-yes, 0-no
   moto-owner    ; 1-yes, 0-no
+  arrived?      ; true- made it to destination, false- commuting
 ]
 
 links-own [
@@ -1083,9 +1084,9 @@ to set-speed
   let average-speed-c first (item 1 my-csv-dataset)
   let average-speed-p first (item 2 my-csv-dataset)
 
-  show average-speed-m
-  show average-speed-c
-  show average-speed-p
+  ;show average-speed-m
+  ;show average-speed-c
+  ;show average-speed-p
 
   ask people [
     set speed-m random-normal average-speed-m (average-speed-m * 0.1)
@@ -1187,15 +1188,15 @@ to go
       update-experience      ; number of times that a person has chosen every transport mode over the time steps
       update-uncertainty     ; updates uncertainty level for each agent in every tick
       update-type-choice     ; according to satisfaction and uncertainty applies the decision making rule
-      ask people [move-to home-location]
+      ask people [move-to home-location set arrived? false]
     ]
 
      if (ticks mod 30 = 1)
    ; procedures that run at the beggining of the new decision period
      [
       choice                 ; Breaks population into groups according to their type of choice: "repetition", "imitation", "deliberation", "inquiring"
-      update-ownership       ; uptades car or motrocycle ownership depending on mode choice
       update-age-people      ; updates people age
+      ;update-ownership      ; uptades car or motrocycle ownership depending on mode choice
      ]
 
   ]
@@ -1229,8 +1230,8 @@ to commute
 
     let equiv-cars (cars + mot-equiv-car + pub-equiv-car)
    ; set density (equiv-cars * scaling-factor / 2) ; using adjusted number
-    set density (equiv-cars / (22500 / (count people))) ; using adjusted number
-    ;(base case: 3 equiv cars x 9 patches = 27 or 4 equiv cars x 9 patches = 36)
+    set density (equiv-cars / ((count people / 22500) * 3) ) ; DENSITY SHOULD BE THE NUMBER OF CARS ON ROADS DIVIDED THE "CAPACITY" OF THE ROAD, I'M CALCULATING IT AS THE NUMBER OF PEOPLE PER PATCH * X TIMES
+
 
  ; effect of road accidents
 
@@ -1291,7 +1292,7 @@ to commute
 
   ifelse distance workplace > (1 * speed)
    [fd 1 * speed]
-   [move-to workplace set color black]
+   [move-to workplace set color black set arrived? true]
 
 ; calculate distance traveled
 
@@ -1320,34 +1321,50 @@ to update-safety
 
  ; Probability of having road accidents
 
-  ask people with [t-type = 1]
-   [ifelse ((random-float 1 <= (acc-rate-car * 1.3)) and (gender = 1 and  age < 35 ))  ; I LET THE INCREASE IN RATE FOR MALE AS IT WAS BEFORE THE METTING, BECAUSE IT SHOULD BE HIGHER FOR MEN ONLY IN THIS RANGE OF AGE. THE BASE WILL BE THE REST OF MEN AND FEMALE WILL HAVE A REDUCED RATE.
-      [set safety 1 ] ; young males are more prone to have accidents
-    [ifelse (random-float 1 <= (acc-rate-car) and gender = 1 )
+  ; car accidents
+
+  ask people with [t-type = 1 and gender = 1] ; young males are more prone to have accidents
+   [
+    let acc-prob-c random-float 1
+      ifelse ((acc-prob-c <= (acc-rate-car * 1.3)) and age < 35 )  ; I LET THE INCREASE IN RATE FOR MALE AS IT WAS BEFORE THE METTING, BECAUSE IT SHOULD BE HIGHER FOR MEN ONLY IN THIS RANGE OF AGE. THE BASE WILL BE THE REST OF MEN AND FEMALE WILL HAVE A REDUCED RATE.
+       [set safety 1 ]
+       [if (acc-prob-c <= (acc-rate-car))
         [set safety 1]
-        [if ((random-float 1 <= (acc-rate-car * 0.5)) and gender = 2) ; reduction in female rate was adjusted according to accident rates 2016-2023
-          [set safety 1]
-        ]
-    ]
+      ]
    ]
 
-  ask people with [t-type = 2]
-   [ifelse ((random-float 1 <= (acc-rate-mot * 1.3)) and (gender = 1 and  age < 35 )) ; THE RATE FOR MEN USING MOTO IS ALSO HIGHER FOR THOSE BETWEEN 15-35
-        [set safety 1 ] ; young males are more prone to have accidents
-    [ifelse  (random-float 1 <= acc-rate-mot and gender = 1)
-        [set safety 1]
-        [if ((random-float 1 <= (acc-rate-mot * 0.7)) and gender = 2) ;reduction in female rate was adjusted according to accident rates 2016-2023
-         [set safety 1]
+  ask people with [t-type = 1 and gender = 2]
+    [
+      if (random-float 1 <= (acc-rate-car * 0.5)) ; reduction in female rate was adjusted according to accident rates 2016-2023
+          [set safety 1]
         ]
-    ]
+
+   ; moto accidents
+
+  ask people with [t-type = 2 and gender = 1]
+   [
+      let acc-prob-m random-float 1
+      ifelse ((acc-prob-m <= (acc-rate-mot * 1.3)) and age < 35 ) ; THE RATE FOR MEN USING MOTO IS ALSO HIGHER FOR THOSE BETWEEN 15-35
+        [set safety 1 ] ; young males are more prone to have accidents
+        [if (acc-prob-m <= acc-rate-mot)
+         [set safety 1]
+      ]
    ]
+
+   ask people with [t-type = 2 and gender = 2]
+       [
+         if (random-float 1 <= (acc-rate-mot * 0.7)) ;reduction in female rate was adjusted according to accident rates 2016-2023
+          [set safety 1]
+        ]
+
+     ; public accidents
 
   ask people with [t-type = 3]
    [if random-float 1 <= acc-rate-pub [set safety 1 ]]
 
  ; Counts road accidents by mode in the system
-  let acc-mot count people with [t-type = 1 and safety = 1]
-  let acc-car count people with [t-type = 2 and safety = 1]
+  let acc-car count people with [t-type = 1 and safety = 1]
+  let acc-mot count people with [t-type = 2 and safety = 1]
   let acc-pub count people with [t-type = 3 and safety = 1]
 
  ; Accumulates accidents during the commuting periods
@@ -2296,56 +2313,12 @@ count people with [h-social-type = 3]
 11
 
 MONITOR
-966
-353
-1047
-398
+967
+157
+1048
+202
 NIL
 count links
-17
-1
-11
-
-MONITOR
-966
-127
-1108
-172
-destination community 1
-count people with [destination-community = 1]
-17
-1
-11
-
-MONITOR
-967
-175
-1108
-220
-destination community 2
-count people with [destination-community = 2]
-17
-1
-11
-
-MONITOR
-1110
-126
-1251
-171
-destination community 3
-count people with [destination-community = 3]
-17
-1
-11
-
-MONITOR
-1110
-175
-1251
-220
-destination community 22
-count people with [destination-community = 22]
 17
 1
 11
@@ -2368,10 +2341,10 @@ NIL
 1
 
 MONITOR
-1052
-353
-1201
-398
+1053
+157
+1202
+202
 NIL
 global-clustering-coefficient
 5
@@ -2396,22 +2369,11 @@ NIL
 1
 
 MONITOR
-1630
-633
-1695
-678
-accidents
-count people with [safety = 1]
-17
-1
-11
-
-MONITOR
-1700
-633
-1762
-678
-incidents
+1750
+823
+1809
+868
+inc-tot
 count people with [security = 1]
 17
 1
@@ -2419,9 +2381,9 @@ count people with [security = 1]
 
 MONITOR
 967
-492
+617
 1022
-537
+662
 Cars
 count people with [t-type = 1]
 17
@@ -2430,9 +2392,9 @@ count people with [t-type = 1]
 
 MONITOR
 967
-545
+670
 1022
-590
+715
 Moto
 count people with [t-type = 2]
 17
@@ -2441,44 +2403,11 @@ count people with [t-type = 2]
 
 MONITOR
 966
-598
+723
 1023
-643
+768
 Bus
 count people with [t-type = 3]
-17
-1
-11
-
-MONITOR
-968
-226
-1045
-271
-men 1524
-count people with [gender = 1 and age > 14 and age < 25]
-17
-1
-11
-
-MONITOR
-1051
-225
-1127
-270
-women 1524
-count people with [gender = 2 and age > 14 and age < 25]
-17
-1
-11
-
-MONITOR
-1132
-225
-1210
-270
-men2459
-count people with [gender = 1 and age > 24 and age < 60]
 17
 1
 11
@@ -2512,10 +2441,10 @@ deviation
 Number
 
 MONITOR
-1631
-579
-1688
-624
+1330
+600
+1387
+645
 acc-car
 acc-car-count
 17
@@ -2523,10 +2452,10 @@ acc-car-count
 11
 
 MONITOR
-1695
-578
-1755
-623
+1388
+600
+1448
+645
 acc-mot
 acc-mot-count
 17
@@ -2534,10 +2463,10 @@ acc-mot-count
 11
 
 MONITOR
-1762
-578
-1821
-623
+1448
+600
+1507
+645
 acc-pub
 acc-pub-count
 17
@@ -2657,9 +2586,9 @@ inquiry-process
 
 PLOT
 1032
-492
+617
 1267
-642
+767
 Users by mode
 Periods
 % of users
@@ -2677,9 +2606,9 @@ PENS
 
 MONITOR
 1244
-483
+608
 1301
-528
+653
 car
 count people with [t-type = 1] / count people
 2
@@ -2688,9 +2617,9 @@ count people with [t-type = 1] / count people
 
 MONITOR
 1244
-530
+655
 1301
-575
+700
 moto
 count people with [t-type = 2] / count people
 2
@@ -2699,9 +2628,9 @@ count people with [t-type = 2] / count people
 
 MONITOR
 1244
-579
+704
 1301
-624
+749
 pub
 count people with [t-type = 3] / count people
 2
@@ -2714,7 +2643,7 @@ INPUTBOX
 181
 171
 Time-steps
-2.0
+3.0
 1
 0
 Number
@@ -2817,19 +2746,19 @@ count people
 
 TEXTBOX
 968
-465
+590
 1118
-483
+608
 transport modes
 14
 103.0
 1
 
 TEXTBOX
-966
-331
-1116
-349
+967
+135
+1117
+153
 social network
 14
 103.0
@@ -2846,10 +2775,10 @@ decision makers
 1
 
 PLOT
-1319
-376
-1519
-526
+1062
+241
+1262
+391
 density
 NIL
 NIL
@@ -2864,10 +2793,10 @@ PENS
 "density" 1.0 0 -16777216 true "" "plot mean [density] of people"
 
 PLOT
-1319
-531
-1552
-681
+970
+401
+1266
+551
 speed
 NIL
 NIL
@@ -2885,12 +2814,269 @@ PENS
 "pub" 1.0 0 -13345367 true "" "plot mean [speed] of people with [t-type = 3]"
 
 MONITOR
-1358
-717
-1447
-762
-In destination
-count people  / count people
+966
+241
+1056
+286
+% in destination
+(count people with [patch-here = workplace] / count people) * 100
+3
+1
+11
+
+TEXTBOX
+970
+218
+1120
+236
+commute
+14
+103.0
+1
+
+MONITOR
+1508
+600
+1565
+645
+tot acc
+acc-car-count + acc-mot-count + acc-pub-count
+17
+1
+11
+
+PLOT
+1330
+446
+1566
+596
+Accidents by period
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"total" 1.0 0 -10899396 true "" "if (ticks mod (30)) = 1 [plot (acc-mot-count + acc-car-count + acc-pub-count) ]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot acc-mot-count]"
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot acc-car-count]"
+"pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 [plot acc-pub-count]"
+
+PLOT
+1574
+445
+1805
+595
+Accidents by tick
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"tot" 1.0 0 -10899396 true "" "plot count people with [safety = 1]"
+"car" 1.0 0 -2674135 true "" "plot count people with [safety = 1 and t-type = 1]"
+"mot" 1.0 0 -16777216 true "" "plot count people with [safety = 1 and t-type = 2]"
+"pub" 1.0 0 -13345367 true "" "plot count people with [safety = 1 and t-type = 3]"
+
+TEXTBOX
+1331
+413
+1481
+431
+travel information
+14
+103.0
+1
+
+MONITOR
+1574
+600
+1631
+645
+acc-car
+count people with [safety = 1 and t-type = 1]
+17
+1
+11
+
+MONITOR
+1631
+600
+1691
+645
+acc-mot
+count people with [safety = 1 and t-type = 2]
+17
+1
+11
+
+MONITOR
+1692
+600
+1751
+645
+acc-pub
+count people with [safety = 1 and t-type = 3]
+17
+1
+11
+
+MONITOR
+1750
+600
+1807
+645
+acc-tot
+count people with [safety = 1]
+17
+1
+11
+
+PLOT
+1574
+656
+1807
+814
+Incidents by tick
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -10899396 true "" "plot count people with [security = 1]"
+"car" 1.0 0 -2674135 true "" "plot count people with [security = 1 and t-type = 1]"
+"mot" 1.0 0 -16777216 true "" "plot count people with [security = 1 and t-type = 2]"
+"pub" 1.0 0 -13345367 true "" "plot count people with [security = 1 and t-type = 3]"
+
+PLOT
+1332
+656
+1567
+814
+Incidents by period
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"tot" 1.0 0 -10899396 true "" "if (ticks mod (30)) = 1 [plot (inc-mot-count + inc-car-count + inc-pub-count) ]"
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot inc-car-count]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot inc-mot-count]"
+"pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 [plot inc-pub-count]"
+
+MONITOR
+1558
+223
+1615
+268
+sat-car
+mean [satisfaction] of people with [t-type = 1]
+17
+1
+11
+
+MONITOR
+1558
+270
+1615
+315
+sat-mot
+mean [satisfaction] of people with [t-type = 2]
+17
+1
+11
+
+MONITOR
+1558
+318
+1615
+363
+sat-pub
+mean [satisfaction] of people with [t-type = 3]
+17
+1
+11
+
+MONITOR
+1619
+223
+1676
+268
+unc-car
+mean [uncertainty] of people with [t-type = 1]
+17
+1
+11
+
+MONITOR
+1619
+270
+1675
+315
+unc-mot
+mean [satisfaction] of people with [t-type = 2]
+17
+1
+11
+
+MONITOR
+1620
+318
+1675
+363
+unc-pub
+mean [satisfaction] of people with [t-type = 3]
+17
+1
+11
+
+PLOT
+1820
+445
+2020
+595
+Personal Travel Time
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"tot" 1.0 0 -10899396 true "" "if (ticks mod (30)) = 1 [plot mean [time] of people]"
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot mean [time] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot mean [time] of people with [t-type = 2]]"
+"pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 [plot mean [time] of people with [t-type = 3]]"
+
+MONITOR
+1506
+819
+1567
+864
+inc-tot
+inc-car-count + inc-mot-count + inc-pub-count
 17
 1
 11
