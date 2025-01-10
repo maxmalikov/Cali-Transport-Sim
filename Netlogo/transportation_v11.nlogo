@@ -1,4 +1,4 @@
-extensions [gis csv nw profiler vid bitmap]
+extensions [gis csv nw profiler vid bitmap profiler]
 breed [people person] ;simulate people
 
 ;1:100 1 agent 100 people rounded
@@ -52,6 +52,7 @@ globals[
   p-buy3 p-ope3 p-saf3 p-sec3 p-com3 p-tim3 p-pol3 ;Weights for high-income people
   alpha beta ;Uncertainty Parameters
   commitment
+
 ]
 
 ;---------------Patch Attributes---------------
@@ -173,6 +174,12 @@ to setup
   ;set my-gis-dataset gis:load-dataset "data/raw_data/shp/cali_community_wgs84.shp"
   set my-gis-dataset gis:load-dataset "cali_community_demo_wgs84.shp"
   set my-csv-dataset csv:from-file "inputs.csv" ; imports values for parameters
+  import-drawing "cali_map.png" ; set background image
+
+  ; Calculation variables of waiting time for Public transit (per decision period)
+  set capacity-public   first (item 26 my-csv-dataset) ; number of passengers that the system can move
+  set reg-speed-pub     first (item 27 my-csv-dataset) ; average regular speed of public system with the current capacity
+  set default-wait-time first (item 28 my-csv-dataset) ; defuault waiting time in the public system at normal capacity
 
   draw ;draw the shp of cali
 
@@ -647,6 +654,7 @@ to distribute-people ; move genratend gents witin their community
     let poly-in hpoly
     move-to one-of patches with [pid = poly-in]
     set home-location patch-here
+    set arrived? false ; make sure we set up whether people are at home or not
   ]
 end
 
@@ -1153,8 +1161,6 @@ end
 ;each time step the model will run the go function
 to go
 
-  If ticks = Time-steps * 30 + 2 [stop]
-
   ;; VIDEO RECORDING SETUP
   if vid:recorder-status = "inactive" [
     vid:start-recorder
@@ -1176,13 +1182,12 @@ to go
   update-security
   update-time
 
-   if ticks > 1
+  if ticks > 1
   [
 
-    if (ticks mod (30) = 0.000) ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
-
-    ; procedures that run every decision period
-     [
+    if ticks mod (30) = 0 ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
+                          ; procedures that run every decision period
+    [
       update-scores-tech-attributes ; calulates values for tech attributes to be used in satisfaction update for each agent in every decision tick
       update-satisfaction    ; updates values of satisfcation for each agent in every tick
       update-experience      ; number of times that a person has chosen every transport mode over the time steps
@@ -1191,24 +1196,24 @@ to go
       ask people [move-to home-location set arrived? false]
     ]
 
-     if (ticks mod 30 = 1)
-   ; procedures that run at the beggining of the new decision period
-     [
+    if ticks mod 30 = 1
+    ; procedures that run at the beggining of the new decision period
+    [
       choice                 ; Breaks population into groups according to their type of choice: "repetition", "imitation", "deliberation", "inquiring"
       update-age-people      ; updates people age
-      ;update-ownership      ; uptades car or motrocycle ownership depending on mode choice
-     ]
+                             ;update-ownership      ; updates car or motrocycle ownership depending on mode choice
+    ]
+    ;; SAVE FINAL VIDEO
+    if ticks = (Time-steps * 30 + 2)
+    [
+      vid:save-recording "cali_sim.mp4"
+      print vid:recorder-status
+      stop
+    ]
 
   ]
 
   tick
-
-  ;; SAVE FINAL VIDEO
-    if ticks = 120 [
-    vid:save-recording "cali_sim.mp4"
-    print vid:recorder-status
-    ;stop
-  ]
 
 end
 
@@ -1216,9 +1221,10 @@ end
 
 to commute
 
-  ask people
+  ask people with [not arrived?] ; only run the step for people who are still travelling
   [
-    let people-around people-here
+    let near-people people-on (patch-set patch-here neighbors)
+    let people-around near-people with [not arrived?]; only count people who are not already at work
 
     let cars count people-around with [t-type = 1]
     let mot-equiv-car (count people-around with [t-type = 2]) * 0.5
@@ -1230,12 +1236,13 @@ to commute
 
     let equiv-cars (cars + mot-equiv-car + pub-equiv-car)
    ; set density (equiv-cars * scaling-factor / 2) ; using adjusted number
-    set density (equiv-cars / ((count people / 22500) * 3) ) ; DENSITY SHOULD BE THE NUMBER OF CARS ON ROADS DIVIDED THE "CAPACITY" OF THE ROAD, I'M CALCULATING IT AS THE NUMBER OF PEOPLE PER PATCH * X TIMES
+    set density (0.1 * equiv-cars * (20000 / count people) ) ; DENSITY SHOULD BE THE NUMBER OF CARS ON ROADS DIVIDED THE "CAPACITY" OF THE ROAD, I'M CALCULATING IT AS THE NUMBER OF PEOPLE PER PATCH * X TIMES
 
 
  ; effect of road accidents
 
-    let accidents-nearby (count people-here with [safety = 1] + (sum [count people-here with [safety = 1]] of neighbors))
+    ; should we only count accidents on the original patch?
+    let accidents-nearby (count people-around with [safety = 1]) ; + (sum [count people-here with [safety = 1]] of neighbors))
     let accident-congestion 1
      if accidents-nearby > 0
       [set accident-congestion 0.8]  ; factor that reduces the speed representing the effect of an accident on the road
@@ -1297,7 +1304,7 @@ to commute
 ; calculate distance traveled
 
  set dist-trip distancexy start-x start-y
- set kms ((distance home-location))
+ set kms ((distance home-location)) ; Note1: where are use these two varibales used in the model, do we need this?
 
   ]
 
@@ -1308,70 +1315,70 @@ end
 ; SAFETY CALCULATION EVERY TICK
 to update-safety
 
- ; Resets accidents every tick
-  ask people [set safety 0]
+  ; Resets accidents every tick
+  ;ask people [set safety 0]
 
- ; Resets the accident count in the system for agents for the new decision period
-
-    if (ticks mod 30) = 1
-     [set acc-mot-count 0
-      set acc-car-count 0
-      set acc-pub-count 0]
+  ; Resets the accident count in the system for agents for the new decision period
+  if (ticks mod 30) = 1
+  [
+    set acc-mot-count 0
+    set acc-car-count 0
+    set acc-pub-count 0
+    ask people [set safety 0]
+  ]
 
 
  ; Probability of having road accidents
-
   ; car accidents
-
-  ask people with [t-type = 1 and gender = 1] ; young males are more prone to have accidents
-   [
+  ask people with [t-type = 1 and gender = 1 and not arrived?] ; young males are more prone to have accidents
+  [
     let acc-prob-c random-float 1
-      ifelse ((acc-prob-c <= (acc-rate-car * 1.3)) and age < 35 )  ; I LET THE INCREASE IN RATE FOR MALE AS IT WAS BEFORE THE METTING, BECAUSE IT SHOULD BE HIGHER FOR MEN ONLY IN THIS RANGE OF AGE. THE BASE WILL BE THE REST OF MEN AND FEMALE WILL HAVE A REDUCED RATE.
-       [set safety 1 ]
-       [if (acc-prob-c <= (acc-rate-car))
-        [set safety 1]
-      ]
-   ]
 
-  ask people with [t-type = 1 and gender = 2]
+    ifelse age < 35
+    [if acc-prob-c <= (acc-rate-car * 1.3) [set safety 1]]
+    [if acc-prob-c <= acc-rate-car         [set safety 1]] ;Note 2, the conditional operation is not correct somehow
+
+      ;    ifelse ((acc-prob-c <= (acc-rate-car * 1.3)) and age < 35)  ; I LET THE INCREASE IN RATE FOR MALE AS IT WAS BEFORE THE METTING, BECAUSE IT SHOULD BE HIGHER FOR MEN ONLY IN THIS RANGE OF AGE. THE BASE WILL BE THE REST OF MEN AND FEMALE WILL HAVE A REDUCED RATE.
+      ;    [set safety 1 ]
+      ;    [
+      ;      if (acc-prob-c <= (acc-rate-car)) ;Note 2, the conditional operation is not correct somehow
+      ;      [set safety 1]
+      ;    ]
+    ]
+
+    ask people with [t-type = 1 and gender = 2  and not arrived?]
     [
-      if (random-float 1 <= (acc-rate-car * 0.5)) ; reduction in female rate was adjusted according to accident rates 2016-2023
-          [set safety 1]
-        ]
+      if (random-float 1 <= (acc-rate-car * 0.5)) [set safety 1]; reduction in female rate was adjusted according to accident rates 2016-2023
+    ]
 
-   ; moto accidents
-
-  ask people with [t-type = 2 and gender = 1]
-   [
+    ; moto accidents
+    ask people with [t-type = 2 and gender = 1 and not arrived?]
+    [
       let acc-prob-m random-float 1
       ifelse ((acc-prob-m <= (acc-rate-mot * 1.3)) and age < 35 ) ; THE RATE FOR MEN USING MOTO IS ALSO HIGHER FOR THOSE BETWEEN 15-35
-        [set safety 1 ] ; young males are more prone to have accidents
-        [if (acc-prob-m <= acc-rate-mot)
-         [set safety 1]
-      ]
-   ]
+      [set safety 1 ] ; young males are more prone to have accidents
+      [if (acc-prob-m <= acc-rate-mot)[set safety 1]]
+    ]
 
-   ask people with [t-type = 2 and gender = 2]
-       [
-         if (random-float 1 <= (acc-rate-mot * 0.7)) ;reduction in female rate was adjusted according to accident rates 2016-2023
-          [set safety 1]
-        ]
+    ask people with [t-type = 2 and gender = 2 and not arrived?]
+    [
+      if (random-float 1 <= (acc-rate-mot * 0.7)) ;reduction in female rate was adjusted according to accident rates 2016-2023
+      [set safety 1]
+    ]
 
-     ; public accidents
+    ; public accidents ;Note3 should the acc rate of public transportation be divided by the people in the public vehicle?
+    ask people with [t-type = 3  and not arrived?]
+    [if random-float 1 <= acc-rate-pub [set safety 1]]
 
-  ask people with [t-type = 3]
-   [if random-float 1 <= acc-rate-pub [set safety 1 ]]
+;    ; Counts road accidents by mode in the system
+;    let acc-car count people with [t-type = 1 and safety = 1]
+;    let acc-mot count people with [t-type = 2 and safety = 1]
+;    let acc-pub count people with [t-type = 3 and safety = 1]
 
- ; Counts road accidents by mode in the system
-  let acc-car count people with [t-type = 1 and safety = 1]
-  let acc-mot count people with [t-type = 2 and safety = 1]
-  let acc-pub count people with [t-type = 3 and safety = 1]
-
- ; Accumulates accidents during the commuting periods
-
-    set acc-mot-count (acc-mot-count + acc-mot )
-    set acc-car-count (acc-car-count + acc-car )
-    set acc-pub-count (acc-pub-count + acc-pub )
+    ; Accumulates accidents during the commuting periods; Note 4: is the actual number of accident from the simulation realistic? ask the people that are not in the accident
+    set acc-car-count count people with [t-type = 1 and safety = 1]
+    set acc-mot-count count people with [t-type = 2 and safety = 1]
+    set acc-pub-count count people with [t-type = 3 and safety = 1]
 
 end
 
@@ -1381,58 +1388,72 @@ end
 to update-security
 
  ; Resets incidents every tick
-  ask people [set security 0] ;Security = 0 means no incidents.
+  ;Note6 do you think this should work as the safety function?
+ ; ask people [set security 0] ;Security = 0 means no incidents.
 
   if (ticks mod 30) = 1
 
-      ; Resets the total incident count in the system for the new decision period
-      [ set inc-mot-count 0
-       set inc-car-count 0
-    set inc-pub-count 0]
+  ; Resets the total incident count in the system for the new decision period
+  [ set inc-mot-count 0
+    set inc-car-count 0
+    set inc-pub-count 0
+    ; Resets the incident count
+    ask people
+    [
+      ; Resets the incident count in the network for the new decision period
+      set inc-nw-m-count 0
+      set inc-nw-c-count 0
+      set inc-nw-p-count 0
+      set security 0
+    ]
 
- ; Resets the incident count
-  ask people
-   [
-     ; Resets the incident count in the network for the new decision period
-       set inc-nw-m-count 0
-       set inc-nw-c-count 0
-       set inc-nw-p-count 0
-   ]
+  ]
 
 
  ; Probability of having personal security incidents
-  ask people with [t-type = 1]
+  ask people with [t-type = 1 and not arrived?]
     [if random-float 1 <= insecur-c [set security 1]]
 
-  ask people with [t-type = 2]
+  ask people with [t-type = 2 and not arrived?]
     [if random-float 1 <= insecur-m [set security 1]]
 
-  ask people with [t-type = 3]
+  ask people with [t-type = 3 and not arrived?]
     [if random-float 1 <= insecur-p [set security 1]]
 
  ; Checks if people in the network have experienced insecurity incidents
   ask people
    [
-    let inc-nw-c count link-neighbors with [t-type = 1 and security = 1]
-    let inc-nw-m count link-neighbors with [t-type = 2 and security = 1]
-    let inc-nw-p count link-neighbors with [t-type = 3 and security = 1]
+      set inc-nw-m-count count link-neighbors with [t-type = 1 and security = 1]
+      set inc-nw-m-count count link-neighbors with [t-type = 2 and security = 1]
+      set inc-nw-p-count count link-neighbors with [t-type = 3 and security = 1]
 
-    ; Accumulates incidents by mode in the network
-     set inc-nw-m-count (inc-nw-m-count + inc-nw-m )
-     set inc-nw-c-count (inc-nw-c-count + inc-nw-c )
-     set inc-nw-p-count (inc-nw-p-count + inc-nw-p )
+
+;      let inc-nw-c count link-neighbors with [t-type = 1 and security = 1]
+;      let inc-nw-m count link-neighbors with [t-type = 2 and security = 1]
+;      let inc-nw-p count link-neighbors with [t-type = 3 and security = 1]
+;
+;      ; Accumulates incidents by mode in the network
+;      set inc-nw-m-count (inc-nw-m-count + inc-nw-m )
+;      set inc-nw-c-count (inc-nw-c-count + inc-nw-c )
+;      set inc-nw-p-count (inc-nw-p-count + inc-nw-p )
 
   ]
 
-    ; Counts incidents in the system
-     let inc-car (count people with [security = 1 and t-type = 1] )
-     let inc-mot (count people with [security = 1 and t-type = 2] )
-     let inc-pub (count people with [security = 1 and t-type = 3] )
 
-    ; Accumulates incidents in the system by decision period
-     set inc-mot-count (inc-mot-count + inc-mot)
-     set inc-car-count (inc-car-count + inc-car)
-     set inc-pub-count (inc-pub-count + inc-pub)
+  ; Accumulates incidents in the system by decision period
+  set inc-car-count count people with [security = 1 and t-type = 1]
+  set inc-mot-count count people with [security = 1 and t-type = 2]
+  set inc-pub-count count people with [security = 1 and t-type = 3]
+
+;  ;Counts incidents in the system
+;  let inc-car (count people with [security = 1 and t-type = 1] )
+;  let inc-mot (count people with [security = 1 and t-type = 2] )
+;  let inc-pub (count people with [security = 1 and t-type = 3] )
+
+  ; Accumulates incidents in the system by decision period
+;  set inc-mot-count (inc-mot-count + inc-mot)
+;  set inc-car-count (inc-car-count + inc-car)
+;  set inc-pub-count (inc-pub-count + inc-pub)
 
 
 end
@@ -1441,42 +1462,32 @@ end
 
 to update-time
 
-ask people
+  let bus-passengers (count people with [t-type = 3])
+  let wait-turns (bus-passengers / capacity-public) ; indicates the number of turns people need to wait to catch a bus
+
+
+  ask people
   [
-   ; Resets the accumulated time for the new decision period
+
     if (ticks mod 30) = 1
-     [set time-m 0
-      set time-c 0
-      set time-p 0]
+        [set time-m 0
+          set time-c 0
+          set time-p 0]
 
-   ; Calculation of equivalent total travel time by transport mode per tick (time that agent would take to make the complete trip with the current speed) (este cambio en el cálculo se hizo para que las cortas distancias recorridas a bajas velocidades no dieran un tiempo muy corto, aparentemente bueno para el usuario)
-    let time-m-tick (dist-home-work / speed-mot / 100 * 60)  ;"/100" adjusts speed parameter to km/h "*60" adjuts time in hours to minutes
-    let time-c-tick (dist-home-work / speed-car / 100 * 60)
-    let time-p-tick (dist-home-work / speed-pub / 100 * 60)
-
-
-   ; Calculation of waiting time for Public transit (per decision period)
-    set capacity-public   first (item 26 my-csv-dataset) ; number of passengers that the system can move
-    set reg-speed-pub     first (item 27 my-csv-dataset) ; average regular speed of public system with the current capacity
-    set default-wait-time first (item 28 my-csv-dataset) ; defuault waiting time in the public system at normal capacity
-
-    let bus-passengers (count people with [t-type = 3])
-    let wait-turns (bus-passengers / capacity-public) ; indicates the number of turns people need to wait to catch a bus
     let relative-speed (reg-speed-pub / speed-pub ) ; if current speed in the public system is lower than regular speed at the current capacity, people need to wait more
-
     set wait-time-p ((random-normal  default-wait-time  1) * relative-speed  * wait-turns)  ; default wait time with the expected congestion at peak hour affected by the difference in speed with the current situation
-     ;in the street multiplied by the number of turns passengers need to wait to catch a bus due to the congestion in the public system
+                                                                                            ;in the street multiplied by the number of turns passengers need to wait to catch a bus due to the congestion in the public system
 
-   ; Calculation of accumulated time to calculate the average time of travel per decision period
-    set time-m (time-m + time-m-tick)
-    set time-c (time-c + time-c-tick)
-    set time-p (time-p + time-p-tick + wait-time-p)
+    ; Calculation of accumulated time to calculate the average time of travel per decision period
+    set time-m (time-m + dist-home-work / speed-mot / 100 * 60)
+    set time-c (time-c + dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
+    set time-p (time-p + dist-home-work / speed-pub / 100 * 60 + wait-time-p)
 
-   ; Updates time for people according to the transport mode
+
+    ; Updates time for people according to the transport mode
     if t-type = 1  [set time (time-c / 30)] ;"/30" calculates the average time to complete the commute home-work
     if t-type = 2  [set time (time-m / 30)]
     if t-type = 3  [set time (time-p / 30)]
-
   ]
 
 end
@@ -1500,9 +1511,14 @@ to update-scores-tech-attributes
    ; show costv-mot
    ; show costv-car
 
+  ]
+  ; changed this to be outside of asking people, so we don't run this for every person - Max
    set max-costv max [costv-car] of people ; max variable operating cost in the system
    set min-costv min [costv-mot] of people ; min variable operating cost in the system
 
+
+    ask people
+  [
     ;show max-costv
     ;show min-costv
 
@@ -1553,6 +1569,8 @@ to update-scores-tech-attributes
     if t-type = 3
       [set pollution (kms * emi-pub)]
 
+  ]
+
     let emissions-car sum [pollution] of people with [t-type = 1]
     let emissions-mot sum [pollution] of people with [t-type = 2]
     let emissions-pub sum [pollution] of people with [t-type = 3]
@@ -1567,9 +1585,11 @@ to update-scores-tech-attributes
   ; UPDATE COMFORT SCORES
 
    ; Comfort score affected by random events (weather, mechanical failure) and saturation of public transit
+  ask people [
 
     let prob-bad-weather  random-float 0.6     ; has impact on moto and public transit comfort
 
+    ; Note: should this number be 0? Or something else? Density will never be less than 0
     ifelse density >= 0                        ; high congestion increases stress, decreasing comfort
      [
         set comfort-mot (comfort-m * (1 - prob-bad-weather) * (1 - density * 0.1))  ; bad weather and congestion have impact on mot comfort
@@ -1589,7 +1609,7 @@ to update-scores-tech-attributes
       [set comfort comfort-mot]
      if t-type = 3
       [set comfort comfort-pub]
-
+  ]
 
   ; UPDATE TIME SCORES
 
@@ -1601,6 +1621,7 @@ to update-scores-tech-attributes
 
     ;show max-time
 
+ask people [
 
     set time-mot (1 - ((time-m / 30 - min-time) / (max-time - min-time)))
     set time-car (1 - ((time-c / 30 - min-time) / (max-time - min-time)))
@@ -1614,235 +1635,7 @@ end
 ;;************************;;
 ;;****     3 Tools    ****;;
 ;;************************;;
-to create-small-world-network
-  ;K' code for social network
-  ask people with [h-social-type = 1]
-  [
-    create-links-with n-of 3 other (people with [h-social-type = 1])
-    let new-node one-of [ both-ends ] of one-of links
-    ; Too many links when the n is large. What should the n be?
-    let new-link-neighbors n-of (0.0005 * count (people with [h-social-type != 1])) (people with [h-social-type != 1])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set color black]
-      ]
-    ]
-  ]
 
-  ask people with [h-social-type = 2]
-  [
-    create-links-with n-of 3 other (people with [h-social-type = 2])
-    let new-node one-of [ both-ends ] of one-of links
-    let new-link-neighbors n-of (0.0005 * count (people with [h-social-type != 2])) (people with [h-social-type != 2])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set color cyan]
-      ]
-    ]
-  ]
-
-  ask (people with [h-social-type = 3])
-  [
-    create-links-with n-of 3 other (people with [h-social-type = 3])
-    let new-node one-of [ both-ends ] of one-of links
-    let new-link-neighbors n-of (0.0005 * count (people with [h-social-type != 3])) (people with [h-social-type != 3])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? hidden?]
-      ]
-    ]
-  ]
-end
-
-to create-small-world-network2
-  ;K' code for social network
-  let num-soc-1 0.012 * count (people with [h-social-type != 1])
-  let num-soc-2 0.012 * count (people with [h-social-type != 2])
-  let num-soc-3 0.012 * count (people with [h-social-type != 3])
-  ask people with [h-social-type = 1]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 1]) [set hidden? true]
-    let new-node one-of [ both-ends ] of one-of links
-    ; Too many links when the n is large. What should the n be?
-    let new-link-neighbors n-of num-soc-1 (people with [h-social-type != 1])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? true]
-      ]
-    ]
-  ]
-
-  ask people with [h-social-type = 2]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 2]) [set hidden? true]
-    let new-node one-of [ both-ends ] of one-of links
-    let new-link-neighbors n-of num-soc-2 (people with [h-social-type != 2])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? true]
-      ]
-    ]
-  ]
-
-  ask (people with [h-social-type = 3])
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 3]) [set hidden? true]
-    let new-node one-of [ both-ends ] of one-of links
-    let new-link-neighbors n-of num-soc-3 (people with [h-social-type != 3])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? true]
-      ]
-    ]
-  ]
-end
-
-to create-small-world-network3
-  ;K' code for social network
-  let num-soc-1 2 * 0.011 * count (people with [h-social-type != 1])
-  let num-soc-2 2 * 0.011 * count (people with [h-social-type != 2])
-  let num-soc-3 2 * 0.011 * count (people with [h-social-type != 3])
-  ask people with [h-social-type = 1]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 1]) [set hidden? true]
-    let new-node one-of [ both-ends ] of one-of links
-    ; Too many links when the n is large. What should the n be?
-    let new-link-neighbors n-of (random num-soc-1) (people with [h-social-type != 1])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? true]
-      ]
-    ]
-  ]
-
-  ask people with [h-social-type = 2]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 2]) [set hidden? true]
-    let new-node one-of [ both-ends ] of one-of links
-    let new-link-neighbors n-of (random num-soc-2) (people with [h-social-type != 2])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? true]
-      ]
-    ]
-  ]
-
-  ask (people with [h-social-type = 3])
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 3]) [set hidden? true]
-    let new-node one-of [ both-ends ] of one-of links
-    let new-link-neighbors n-of (random num-soc-3) (people with [h-social-type != 3])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? true]
-      ]
-    ]
-  ]
-end
-
-to create-small-world-network4
-  ;K' code for social network
-  let num-soc-1 2 * 0.011 * count (people with [h-social-type != 1])
-  let num-soc-2 2 * 0.011 * count (people with [h-social-type != 2])
-  let num-soc-3 2 * 0.011 * count (people with [h-social-type != 3])
-  ask people with [h-social-type = 1]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 1]) [set hidden? true]
-    let new-node one-of [ both-ends ] of one-of links
-    ; Too many links when the n is large. What should the n be?
-    let new-link-neighbors n-of (random num-soc-1) (people with [h-social-type = 1])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? true]
-      ]
-    ]
-  ]
-
-  ask people with [h-social-type = 2]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 2]) [set hidden? true]
-    let new-node one-of [ both-ends ] of one-of links
-    let new-link-neighbors n-of (random num-soc-2) (people with [h-social-type = 2])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? true]
-      ]
-    ]
-  ]
-
-  ask (people with [h-social-type = 3])
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 3]) [set hidden? true]
-    let new-node one-of [ both-ends ] of one-of links
-    let new-link-neighbors n-of (random num-soc-3) (people with [h-social-type = 3])
-    ask new-link-neighbors
-    [
-      if self != new-node
-      [
-        create-link-with new-node
-        [set hidden? true]
-      ]
-    ]
-  ]
-end
-
-to create-preferential-network
-  ; seeding the links for preferential attachment
-  ask n-of 20 people with [h-social-type = 1]
-  [
-    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
-  ]
-  ask n-of 20 people with [h-social-type = 2]
-  [
-    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
-  ]
-  ask n-of 20 people with [h-social-type = 3]
-  [
-    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
-  ]
-  ask people
-  [
-    ;let number-of-connections 12 ; sets how many connections we want
-    ; set new node to a random end of a link; key to preferential attachment.
-    let new-nodes find-partner 12 self
-    ; create a link with the curated node
-    create-links-with new-nodes [set hidden? true]
-  ]
-
-end
 
 to update-satisfaction
   ask people
@@ -2035,92 +1828,6 @@ to update-age-people
  ask people [set age age + 1]
 end
 
-
-
-to create-social-network
-  ; seeding the links for preferential attachment
-  ask people with [h-social-type = 1]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 1]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 2]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 2]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 3]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 3]) [set hidden? true]
-  ]
-  repeat (count people * 10 ) [ ; the multiplier will create an average of that many links per agent
-    ask one-of people
-    [
-      make-link
-    ]
-  ]
-end
-
-
-to create-social-network-fast
-  ; seeding the links for preferential attachment
-  ask people with [h-social-type = 1]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 1]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 2]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 2]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 3]
-  [
-    create-links-with n-of 5 other (people with [h-social-type = 3]) [set hidden? true]
-  ]
-  let clustering-coef 10
-  repeat (count people * clustering-coef)
-  [
-    ask one-of links
-    [
-      let linker self
-      if ([h-social-type] of one-of [both-ends] of linker) = 1
-      [
-        ask one-of people with [h-social-type = 1]
-        [
-          if all? [both-ends] of linker [ self != myself]
-          [
-          create-links-with [both-ends] of linker [set hidden? true]
-          ]
-        ]
-      ]
-      if ([h-social-type] of one-of [both-ends] of linker) = 2
-      [
-        ask one-of people with [h-social-type = 2]
-        [
-          if all? [both-ends] of linker [ self != myself]
-          [
-          create-links-with [both-ends] of linker [set hidden? true]
-          ]
-        ]
-      ]
-      if ([h-social-type] of one-of [both-ends] of linker) = 3
-      [
-        ask one-of people with [h-social-type = 3]
-        [
-          if all? [both-ends] of linker [ self != myself]
-          [
-          create-links-with [both-ends] of linker [set hidden? true]
-          ]
-        ]
-      ]
-    ]
-  ]
-    repeat (count people * 1.5 ) [ ; the multiplier will create an average of that many links per agent
-    ask one-of [both-ends] of one-of links
-    [
-      create-links-with n-of (random 100) other people [set hidden? true ]
-      ;create-link-with one-of other people [set hidden? true ]
-    ]
-  ]
-end
-
 ;; This is the network generating algorithm we will be using for now.
 to create-social-network-fast2
 
@@ -2232,7 +1939,7 @@ ticks
 BUTTON
 5
 10
-78
+72
 43
 NIL
 setup\n
@@ -2340,23 +2047,12 @@ NIL
 NIL
 1
 
-MONITOR
-1053
-157
-1202
-202
-NIL
-global-clustering-coefficient
-5
-1
-11
-
 BUTTON
 10
 100
-73
+74
 133
-NIL
+go once
 go
 NIL
 1
@@ -2369,10 +2065,10 @@ NIL
 1
 
 MONITOR
-1750
-823
-1809
-868
+1774
+799
+1833
+844
 inc-tot
 count people with [security = 1]
 17
@@ -2441,10 +2137,10 @@ deviation
 Number
 
 MONITOR
-1330
-600
-1387
-645
+1354
+576
+1411
+621
 acc-car
 acc-car-count
 17
@@ -2452,10 +2148,10 @@ acc-car-count
 11
 
 MONITOR
-1388
-600
-1448
-645
+1412
+576
+1472
+621
 acc-mot
 acc-mot-count
 17
@@ -2463,10 +2159,10 @@ acc-mot-count
 11
 
 MONITOR
-1448
-600
-1507
-645
+1472
+576
+1531
+621
 acc-pub
 acc-pub-count
 17
@@ -2575,10 +2271,10 @@ NIL
 HORIZONTAL
 
 CHOOSER
-0
-886
-138
-931
+13
+457
+151
+502
 inquiry-process
 inquiry-process
 "everybody" "most-used"
@@ -2605,10 +2301,10 @@ PENS
 "pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 3 ]) / (count people)]"
 
 MONITOR
-1244
-608
-1301
-653
+1269
+619
+1326
+664
 car
 count people with [t-type = 1] / count people
 2
@@ -2616,10 +2312,10 @@ count people with [t-type = 1] / count people
 11
 
 MONITOR
-1244
-655
-1301
-700
+1269
+666
+1326
+711
 moto
 count people with [t-type = 2] / count people
 2
@@ -2627,10 +2323,10 @@ count people with [t-type = 2] / count people
 11
 
 MONITOR
-1244
-704
-1301
-749
+1269
+715
+1326
+760
 pub
 count people with [t-type = 3] / count people
 2
@@ -2638,10 +2334,10 @@ count people with [t-type = 3] / count people
 11
 
 INPUTBOX
-86
-111
-181
-171
+89
+140
+184
+200
 Time-steps
 3.0
 1
@@ -2649,10 +2345,10 @@ Time-steps
 Number
 
 PLOT
-1317
-49
-1553
-210
+1295
+51
+1531
+212
 Decision type
 Periods
 % of users
@@ -2670,10 +2366,10 @@ PENS
 "Inq" 1.0 0 -15302303 true "" "if (ticks mod (30) = 1) [plot count people with [type-choice = \"inquiry\"]]"
 
 MONITOR
-1557
-34
-1615
-79
+1535
+36
+1593
+81
 rep
 (count people with [type-choice = \"repetition\"]) / (count people)
 2
@@ -2681,10 +2377,10 @@ rep
 11
 
 MONITOR
-1558
-79
-1615
-124
+1536
+81
+1593
+126
 imi
 (count people with [type-choice = \"imitation\"]) / (count people)
 2
@@ -2692,10 +2388,10 @@ imi
 11
 
 MONITOR
-1558
-124
-1615
-169
+1536
+126
+1593
+171
 del
 (count people with [type-choice = \"deliberation\"]) / (count people)
 2
@@ -2703,10 +2399,10 @@ del
 11
 
 MONITOR
-1558
-169
-1615
-214
+1536
+171
+1593
+216
 inq
 (count people with [type-choice = \"inquiry\"]) / (count people)
 2
@@ -2714,10 +2410,10 @@ inq
 11
 
 PLOT
-1319
-218
-1554
-368
+1297
+220
+1532
+370
 Satisfaction and Uncertainty
 Periods
 Value
@@ -2765,10 +2461,10 @@ social network
 1
 
 TEXTBOX
-1314
-12
-1464
-30
+1292
+14
+1442
+32
 decision makers
 14
 103.0
@@ -2835,10 +2531,10 @@ commute
 1
 
 MONITOR
-1508
-600
-1565
-645
+1532
+576
+1589
+621
 tot acc
 acc-car-count + acc-mot-count + acc-pub-count
 17
@@ -2846,10 +2542,10 @@ acc-car-count + acc-mot-count + acc-pub-count
 11
 
 PLOT
-1330
-446
-1566
-596
+1354
+422
+1590
+572
 Accidents by period
 NIL
 NIL
@@ -2867,10 +2563,10 @@ PENS
 "pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 [plot acc-pub-count]"
 
 PLOT
-1574
-445
-1805
-595
+1598
+421
+1829
+571
 Accidents by tick
 NIL
 NIL
@@ -2888,20 +2584,20 @@ PENS
 "pub" 1.0 0 -13345367 true "" "plot count people with [safety = 1 and t-type = 3]"
 
 TEXTBOX
-1331
-413
-1481
-431
+1355
+389
+1505
+407
 travel information
 14
 103.0
 1
 
 MONITOR
-1574
-600
-1631
-645
+1598
+576
+1655
+621
 acc-car
 count people with [safety = 1 and t-type = 1]
 17
@@ -2909,10 +2605,10 @@ count people with [safety = 1 and t-type = 1]
 11
 
 MONITOR
-1631
-600
-1691
-645
+1655
+576
+1715
+621
 acc-mot
 count people with [safety = 1 and t-type = 2]
 17
@@ -2920,10 +2616,10 @@ count people with [safety = 1 and t-type = 2]
 11
 
 MONITOR
-1692
-600
-1751
-645
+1716
+576
+1775
+621
 acc-pub
 count people with [safety = 1 and t-type = 3]
 17
@@ -2931,10 +2627,10 @@ count people with [safety = 1 and t-type = 3]
 11
 
 MONITOR
-1750
-600
-1807
-645
+1774
+576
+1831
+621
 acc-tot
 count people with [safety = 1]
 17
@@ -2942,10 +2638,10 @@ count people with [safety = 1]
 11
 
 PLOT
-1574
-656
-1807
-814
+1598
+632
+1831
+790
 Incidents by tick
 NIL
 NIL
@@ -2963,10 +2659,10 @@ PENS
 "pub" 1.0 0 -13345367 true "" "plot count people with [security = 1 and t-type = 3]"
 
 PLOT
-1332
-656
-1567
-814
+1356
+632
+1591
+790
 Incidents by period
 NIL
 NIL
@@ -2984,10 +2680,10 @@ PENS
 "pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 [plot inc-pub-count]"
 
 MONITOR
-1558
-223
-1615
-268
+1536
+225
+1593
+270
 sat-car
 mean [satisfaction] of people with [t-type = 1]
 17
@@ -2995,10 +2691,10 @@ mean [satisfaction] of people with [t-type = 1]
 11
 
 MONITOR
-1558
-270
-1615
-315
+1536
+272
+1593
+317
 sat-mot
 mean [satisfaction] of people with [t-type = 2]
 17
@@ -3006,10 +2702,10 @@ mean [satisfaction] of people with [t-type = 2]
 11
 
 MONITOR
-1558
-318
-1615
-363
+1536
+320
+1593
+365
 sat-pub
 mean [satisfaction] of people with [t-type = 3]
 17
@@ -3017,10 +2713,10 @@ mean [satisfaction] of people with [t-type = 3]
 11
 
 MONITOR
-1619
-223
-1676
-268
+1597
+225
+1654
+270
 unc-car
 mean [uncertainty] of people with [t-type = 1]
 17
@@ -3028,10 +2724,10 @@ mean [uncertainty] of people with [t-type = 1]
 11
 
 MONITOR
-1619
-270
-1675
-315
+1597
+272
+1653
+317
 unc-mot
 mean [satisfaction] of people with [t-type = 2]
 17
@@ -3039,10 +2735,10 @@ mean [satisfaction] of people with [t-type = 2]
 11
 
 MONITOR
-1620
-318
-1675
-363
+1598
+320
+1653
+365
 unc-pub
 mean [satisfaction] of people with [t-type = 3]
 17
@@ -3050,10 +2746,10 @@ mean [satisfaction] of people with [t-type = 3]
 11
 
 PLOT
-1820
-445
-2020
-595
+1612
+52
+1812
+202
 Personal Travel Time
 NIL
 NIL
@@ -3071,15 +2767,32 @@ PENS
 "pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 [plot mean [time] of people with [t-type = 3]]"
 
 MONITOR
-1506
-819
-1567
-864
+1530
+795
+1591
+840
 inc-tot
 inc-car-count + inc-mot-count + inc-pub-count
 17
 1
 11
+
+BUTTON
+102
+10
+168
+43
+profile
+setup                  ;; set up the model\nprofiler:start         ;; start profiling\nrepeat 32 [ go ]       ;; run something you want to measure\nprofiler:stop          ;; stop profiling\nprint profiler:report  ;; view the results\nprofiler:reset         ;; clear the data
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
