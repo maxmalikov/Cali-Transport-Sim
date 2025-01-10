@@ -1316,7 +1316,7 @@ end
 to update-safety
 
   ; Resets accidents every tick
-  ;ask people [set safety 0]
+  ask people [set safety 0]
 
   ; Resets the accident count in the system for agents for the new decision period
   if (ticks mod 30) = 1
@@ -1352,12 +1352,20 @@ to update-safety
     ]
 
     ; moto accidents
+
+
+
     ask people with [t-type = 2 and gender = 1 and not arrived?]
     [
       let acc-prob-m random-float 1
-      ifelse ((acc-prob-m <= (acc-rate-mot * 1.3)) and age < 35 ) ; THE RATE FOR MEN USING MOTO IS ALSO HIGHER FOR THOSE BETWEEN 15-35
-      [set safety 1 ] ; young males are more prone to have accidents
-      [if (acc-prob-m <= acc-rate-mot)[set safety 1]]
+
+    ifelse age < 35
+    [if acc-prob-m <= (acc-rate-mot * 1.3) [set safety 1]]
+    [if acc-prob-m <= acc-rate-mot         [set safety 1]] ;Note 2, the conditional operation is not correct somehow
+
+;      ifelse ((acc-prob-m <= (acc-rate-mot * 1.3)) and age < 35 ) ; THE RATE FOR MEN USING MOTO IS ALSO HIGHER FOR THOSE BETWEEN 15-35
+;      [set safety 1 ] ; young males are more prone to have accidents
+;      [if (acc-prob-m <= acc-rate-mot)[set safety 1]]
     ]
 
     ask people with [t-type = 2 and gender = 2 and not arrived?]
@@ -1423,7 +1431,7 @@ to update-security
  ; Checks if people in the network have experienced insecurity incidents
   ask people
    [
-      set inc-nw-m-count count link-neighbors with [t-type = 1 and security = 1]
+      set inc-nw-c-count count link-neighbors with [t-type = 1 and security = 1]
       set inc-nw-m-count count link-neighbors with [t-type = 2 and security = 1]
       set inc-nw-p-count count link-neighbors with [t-type = 3 and security = 1]
 
@@ -1479,15 +1487,17 @@ to update-time
                                                                                             ;in the street multiplied by the number of turns passengers need to wait to catch a bus due to the congestion in the public system
 
     ; Calculation of accumulated time to calculate the average time of travel per decision period
-    set time-m (time-m + dist-home-work / speed-mot / 100 * 60)
-    set time-c (time-c + dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
-    set time-p (time-p + dist-home-work / speed-pub / 100 * 60 + wait-time-p)
-
+    if not arrived?
+    [
+    set time-m (time-m + 2) ; dist-home-work / speed-mot / 100 * 60)
+    set time-c (time-c + 2) ; dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
+    set time-p (time-p + 2 + wait-time-p) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
+    ]
 
     ; Updates time for people according to the transport mode
-    if t-type = 1  [set time (time-c / 30)] ;"/30" calculates the average time to complete the commute home-work
-    if t-type = 2  [set time (time-m / 30)]
-    if t-type = 3  [set time (time-p / 30)]
+    if t-type = 1  [set time time-c] ;"/30" calculates the average time to complete the commute home-work
+    if t-type = 2  [set time time-m]
+    if t-type = 3  [set time time-p]
   ]
 
 end
@@ -1503,7 +1513,7 @@ to update-scores-tech-attributes
    set cost-buy-car (cost-buy-car * (1 - buy-increase-c) )
 
    ; UPDATE OPERATING COST SCORES
-   ; show kms
+   ; show kms - Note: need to convert emissions per patch distance traveled.
    let effi-mot random-normal eff-mot (eff-mot * deviation * 2) ; efficiency of motorcycle (kms/galon) normally distributed for each agent
    let effi-car random-normal eff-car (eff-car * deviation * 2) ; efficiency of car (kms/galon) normally distributed for each agent
    set costv-mot (kms / effi-mot * gas-price)
@@ -1590,7 +1600,7 @@ to update-scores-tech-attributes
     let prob-bad-weather  random-float 0.6     ; has impact on moto and public transit comfort
 
     ; Note: should this number be 0? Or something else? Density will never be less than 0
-    ifelse density >= 0                        ; high congestion increases stress, decreasing comfort
+    ifelse density >= 1                        ; high congestion increases stress, decreasing comfort
      [
         set comfort-mot (comfort-m * (1 - prob-bad-weather) * (1 - density * 0.1))  ; bad weather and congestion have impact on mot comfort
         set comfort-car (comfort-c * (1 - density * 0.3))                           ; congestion has a higher impact on car comfort, bad weather does not affect car comfort
@@ -2065,17 +2075,6 @@ NIL
 1
 
 MONITOR
-1774
-799
-1833
-844
-inc-tot
-count people with [security = 1]
-17
-1
-11
-
-MONITOR
 967
 617
 1022
@@ -2486,7 +2485,7 @@ true
 false
 "" ""
 PENS
-"density" 1.0 0 -16777216 true "" "plot mean [density] of people"
+"density" 1.0 0 -16777216 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [density] of people]"
 
 PLOT
 970
