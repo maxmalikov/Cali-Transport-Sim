@@ -830,26 +830,26 @@ end
 
 to set-uncertainty-threshold ; level of uncertainty regarding the transport mode that is accepted by people
 
-  ask people with [t-type = 1]
-  [
-    let uncertm -1
-    while [uncertm < 0 or uncertm > 1]
-     [
-      set uncertm random-normal Uncert-m (Uncert-m * deviation)
-     ]
- ;   show uncertm
-       set uncertainty-threshold uncertm
-  ]
-
- ask people with [t-type = 2]
+  ask people with [t-type = 1] ; with cars
   [
     let uncertc -1
     while [uncertc < 0 or uncertc > 1]
      [
       set uncertc random-normal Uncert-c (Uncert-c * deviation)
      ]
-    ;show uncertc
+ ;   show uncertm
        set uncertainty-threshold uncertc
+  ]
+
+ ask people with [t-type = 2] ; moto
+  [
+    let uncertm -1
+    while [uncertm < 0 or uncertm > 1]
+     [
+      set uncertm random-normal Uncert-m (Uncert-m * deviation)
+     ]
+    ;show uncertc
+       set uncertainty-threshold uncertm
    ]
 
 
@@ -869,26 +869,26 @@ end
 
 to set-satisfaction-threshold ; level of satisfaction that people would like to have with their transport mode ;
 
-  ask people with [t-type = 1]
-  [
-    let satisfactm -1
-    while [satisfactm < 0 or satisfactm > 1]
-     [
-      set satisfactm random-normal Satisf-m (Satisf-m * deviation)
-     ]
-   ; show satisfactm
-       set satisfaction-threshold satisfactm
-  ]
-
-    ask people with [t-type = 2]
+  ask people with [t-type = 1] ; cars
   [
     let satisfactc -1
     while [satisfactc < 0 or satisfactc > 1]
      [
       set satisfactc random-normal Satisf-c (Satisf-c * deviation)
      ]
-  ;  show satisfactc
+   ; show satisfactm
        set satisfaction-threshold satisfactc
+  ]
+
+    ask people with [t-type = 2]
+  [
+    let satisfactm -1
+    while [satisfactm < 0 or satisfactm > 1]
+     [
+      set satisfactm random-normal Satisf-m (Satisf-m * deviation)
+     ]
+  ;  show satisfactc
+       set satisfaction-threshold satisfactm
   ]
 
 
@@ -1378,15 +1378,19 @@ to update-safety
     ask people with [t-type = 3  and not arrived?]
     [if random-float 1 <= acc-rate-pub [set safety 1]]
 
-;    ; Counts road accidents by mode in the system
-;    let acc-car count people with [t-type = 1 and safety = 1]
-;    let acc-mot count people with [t-type = 2 and safety = 1]
-;    let acc-pub count people with [t-type = 3 and safety = 1]
+    ; Counts road accidents by mode in the system
+    let acc-car count people with [t-type = 1 and safety = 1]
+    let acc-mot count people with [t-type = 2 and safety = 1]
+    let acc-pub count people with [t-type = 3 and safety = 1]
+
+    set acc-car-count acc-car-count + acc-car
+    set acc-mot-count acc-mot-count + acc-mot
+    set acc-pub-count acc-pub-count + acc-pub
 
     ; Accumulates accidents during the commuting periods; Note 4: is the actual number of accident from the simulation realistic? ask the people that are not in the accident
-    set acc-car-count count people with [t-type = 1 and safety = 1]
-    set acc-mot-count count people with [t-type = 2 and safety = 1]
-    set acc-pub-count count people with [t-type = 3 and safety = 1]
+;    set acc-car-count count people with [t-type = 1 and safety = 1]
+;    set acc-mot-count count people with [t-type = 2 and safety = 1]
+;    set acc-pub-count count people with [t-type = 3 and safety = 1]
 
 end
 
@@ -1482,6 +1486,7 @@ to update-time
           set time-c 0
           set time-p 0]
 
+    ; Note Max 3 we need to make sure public transport capacity is updated
     let relative-speed (reg-speed-pub / speed-pub ) ; if current speed in the public system is lower than regular speed at the current capacity, people need to wait more
     set wait-time-p ((random-normal  default-wait-time  1) * relative-speed  * wait-turns)  ; default wait time with the expected congestion at peak hour affected by the difference in speed with the current situation
                                                                                             ;in the street multiplied by the number of turns passengers need to wait to catch a bus due to the congestion in the public system
@@ -1633,9 +1638,24 @@ to update-scores-tech-attributes
 
 ask people [
 
-    set time-mot (1 - ((time-m / 30 - min-time) / (max-time - min-time)))
-    set time-car (1 - ((time-c / 30 - min-time) / (max-time - min-time)))
-    set time-pub (1 - ((time-p / 30 - min-time) / (max-time - min-time)))
+    ; Note Max 2 - since people can commute from anywhere to anywhere, the time calculation needs to be changed. I propose the following:
+    ifelse time > 0
+    [
+      ; the most "satifying time" may need to be based on moto, as the fastest mode
+      set time-mot ( distance home-location / speed-mot ) / time
+      set time-car ( distance home-location / speed-mot ) / time
+      set time-pub ( distance home-location / speed-mot ) / time
+    ]
+    [
+      set time-mot 1
+      set time-car 1
+      set time-pub 1
+    ]
+
+
+    ;set time-mot (1 - ((time-m / 30 - min-time) / (max-time - min-time)))
+    ;set time-car (1 - ((time-c / 30 - min-time) / (max-time - min-time)))
+    ;set time-pub (1 - ((time-p / 30 - min-time) / (max-time - min-time)))
 
   ]
 
@@ -1650,15 +1670,17 @@ end
 to update-satisfaction
   ask people
    [
+      ; Note Max 4: should the satisfaction for time be based on the fastest mode available (moto)? If I am using a bus, i might be super fast for a bus but I am still not very fast for a moto
     set satisfaction-mot (w-buy * cost-buy-mot + w-ope * cost-op-mot + w-saf * safety-mot + w-sec * security-mot + w-com * comfort-mot + w-tim * time-mot + w-pol * pollution-tot)
     set satisfaction-car (w-buy * cost-buy-car + w-ope * cost-op-car + w-saf * safety-car + w-sec * security-car + w-com * comfort-car + w-tim * time-car + w-pol * pollution-tot)
+      ; Note Max 1: should pollution be included in the satisfaction for public transportation? Should it just add 1 to signify that they are doing the best they can?
     set satisfaction-pub (w-buy * cost-buy-pub + w-ope * cost-op-pub + w-saf * safety-pub + w-sec * security-pub + w-com * comfort-pub + w-tim * time-pub + w-pol * pollution-tot)
    ]
 
   ask people with [t-type = 1]
-   [set satisfaction satisfaction-mot]
-  ask people with [t-type = 2]
    [set satisfaction satisfaction-car]
+  ask people with [t-type = 2]
+   [set satisfaction satisfaction-mot]
   ask people with [t-type = 3]
    [set satisfaction satisfaction-pub]
 
@@ -1667,8 +1689,8 @@ end
 to update-experience
  ask people
   [
-   if t-type = 1 [set experience-mot experience-mot + 1]
-   if t-type = 2 [set experience-car experience-car + 1]
+   if t-type = 1 [set experience-mot experience-car + 1]
+   if t-type = 2 [set experience-car experience-mot + 1]
    if t-type = 3 [set experience-pub experience-pub + 1]
   ]
 end
@@ -1687,9 +1709,9 @@ to update-uncertainty
 
    ; calculates the proportion of times that the selected mode has choosen during the simulation time
     ifelse t-type = 1
-     [set experience experience-mot]
+     [set experience experience-car]
      [ifelse t-type = 2
-      [set experience experience-car]
+      [set experience experience-mot]
       [set experience experience-pub]]
     let myexperience (experience / (experience-mot + experience-car + experience-pub))
 
@@ -1734,23 +1756,23 @@ to choice
 end
 
 to imitation ; transpot-mode chosen according to the most used among links in their net
-  let moto count link-neighbors with [t-type = 1] / count link-neighbors
-  let car  count link-neighbors with [t-type = 2] / count link-neighbors
+  let car  count link-neighbors with [t-type = 1] / count link-neighbors
+  let moto count link-neighbors with [t-type = 2] / count link-neighbors
   let pub  count link-neighbors with [t-type = 3] / count link-neighbors
 
-  if moto = max (list moto car pub) [set t-type 1 ]
-  if car  = max (list moto car pub) [set t-type 2 ]
+  if car = max (list moto car pub) [set t-type 1 ]
+  if moto  = max (list moto car pub) [set t-type 2 ]
   if pub  = max (list moto car pub) [set t-type 3 ]
   if moto = car  and moto = pub  [set t-type (1 + random 3)]
   if moto = car  and moto > pub  [ifelse random-float 1 < 0.5 [set t-type 1] [set t-type 2]]
-  if moto = pub  and moto > car  [ifelse random-float 1 < 0.5 [set t-type 1] [set t-type 3]]
-  if car  = pub  and car  > moto [ifelse random-float 1 < 0.5 [set t-type 2] [set t-type 3]]
+  if moto = pub  and moto > car  [ifelse random-float 1 < 0.5 [set t-type 2] [set t-type 3]]
+  if car  = pub  and car  > moto [ifelse random-float 1 < 0.5 [set t-type 1] [set t-type 3]]
 end
 
 to inquiry ; Rational process that involves social interaction. Only evaluates transport modes used by contacts in the own network.
 
-   let mot count link-neighbors with [t-type = 1]
-   let car count link-neighbors with [t-type = 2]
+   let car count link-neighbors with [t-type = 1]
+   let mot count link-neighbors with [t-type = 2]
    let pub count link-neighbors with [t-type = 3]
    set utility -1
 
@@ -1781,8 +1803,8 @@ to inquiry ; Rational process that involves social interaction. Only evaluates t
    ; decisión: if satisfaction with the transport mode compared is higher, then adopts that mode.   adopta sólo si halla una satisfacción mayor que la actual
     if utility > satisfaction
      [ ; compares the own utility with the highest utility among the transport modes analized)
-      if utility = satisfaction-mot [set t-type 1 ]
-      if utility = satisfaction-car [set t-type 2 ]
+      if utility = satisfaction-car [set t-type 1 ]
+      if utility = satisfaction-mot [set t-type 2 ]
       if utility = satisfaction-pub [set t-type 3 ]
      ]
 end
@@ -1806,9 +1828,9 @@ to deliberation ;  this is a rational and individual process of selection. The n
 
   let cumulsum exp(utility-mot) + exp(utility-car) + exp(utility-pub)
 
-  let P1 exp(utility-mot) / cumulsum
+  let P1 exp(utility-car) / cumulsum
 
-  let P2 exp(utility-car) / cumulsum
+  let P2 exp(utility-mot) / cumulsum
 
   let P3 exp(utility-pub) / cumulsum
 
@@ -1827,8 +1849,8 @@ end
 to update-ownership
 
     ask people [
-    if t-type = 1 [set moto-owner 1 set car-owner  0]
-    if t-type = 2 [set car-owner  1 set moto-owner 0]
+    if t-type = 1 [set moto-owner 0 set car-owner  1]
+    if t-type = 2 [set car-owner  0 set moto-owner 1]
     if t-type = 3 [set car-owner  0 set moto-owner 0]
   ]
 
@@ -2188,7 +2210,7 @@ Uncert-m
 Uncert-m
 0
 1
-0.45
+0.5
 0.01
 1
 NIL
@@ -2203,7 +2225,7 @@ Uncert-c
 Uncert-c
 0
 1
-0.4
+0.5
 0.01
 1
 NIL
@@ -2233,7 +2255,7 @@ Satisf-m
 Satisf-m
 0
 1
-0.13
+0.5
 0.01
 1
 NIL
@@ -2248,7 +2270,7 @@ Satisf-c
 Satisf-c
 0
 1
-0.09
+0.5
 0.01
 1
 NIL
@@ -2263,7 +2285,7 @@ Satisf-p
 Satisf-p
 0
 1
-0.57
+0.5
 0.01
 1
 NIL
@@ -2292,7 +2314,7 @@ Periods
 0.0
 1.0
 true
-false
+true
 "" ""
 PENS
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 1 ]) / (count people)]"
@@ -2338,7 +2360,7 @@ INPUTBOX
 184
 200
 Time-steps
-3.0
+10.0
 1
 0
 Number
@@ -2556,10 +2578,10 @@ true
 true
 "" ""
 PENS
-"total" 1.0 0 -10899396 true "" "if (ticks mod (30)) = 1 [plot (acc-mot-count + acc-car-count + acc-pub-count) ]"
-"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot acc-mot-count]"
-"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot acc-car-count]"
-"pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 [plot acc-pub-count]"
+"total" 1.0 0 -10899396 true "" "if (ticks mod (30)) = 0 [plot (acc-mot-count + acc-car-count + acc-pub-count) ]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 0 [plot acc-mot-count]"
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 0 [plot acc-car-count]"
+"pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 0 [plot acc-pub-count]"
 
 PLOT
 1598
@@ -2649,10 +2671,10 @@ NIL
 0.0
 10.0
 true
-false
+true
 "" ""
 PENS
-"default" 1.0 0 -10899396 true "" "plot count people with [security = 1]"
+"tot" 1.0 0 -10899396 true "" "plot count people with [security = 1]"
 "car" 1.0 0 -2674135 true "" "plot count people with [security = 1 and t-type = 1]"
 "mot" 1.0 0 -16777216 true "" "plot count people with [security = 1 and t-type = 2]"
 "pub" 1.0 0 -13345367 true "" "plot count people with [security = 1 and t-type = 3]"
@@ -2792,6 +2814,37 @@ NIL
 NIL
 NIL
 1
+
+MONITOR
+1598
+795
+1678
+840
+NIL
+pollution-tot
+17
+1
+11
+
+PLOT
+1667
+222
+1867
+372
+Satisfaction
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+true
+"" ""
+PENS
+"mot" 1.0 0 -16777216 true "" "plot (sum [satisfaction-mot] of people with [t-type = 1] / count people with [t-type = 1])"
+"car" 1.0 0 -2674135 true "" "plot (sum [satisfaction-car] of people with [t-type = 2] / count people with [t-type = 2])"
+"oub" 1.0 0 -14070903 true "" "plot (sum [satisfaction-pub] of people with [t-type = 3] / count people with [t-type = 3])"
 
 @#$#@#$#@
 ## WHAT IS IT?
