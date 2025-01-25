@@ -27,6 +27,9 @@ globals[
   emi-mot
   emi-car
   emi-pub
+  average-speed-m  ; average moto speed distribution
+  average-speed-c  ; average car speed distribution
+  average-speed-p  ; average pub speed distribtion
   acc-rate-mot     ; accident rate for motorcycles
   acc-rate-car     ; accident rate for cars
   acc-rate-pub     ; accident rate for public transit
@@ -147,6 +150,7 @@ people-own[
   car-owner     ; 1-yes, 0-no
   moto-owner    ; 1-yes, 0-no
   arrived?      ; true- made it to destination, false- commuting
+  big-destination ; used to determine whether this person should be part of a school/work network
 ]
 
 links-own [
@@ -243,9 +247,9 @@ to draw
   foreach gis:feature-list-of my-gis-dataset
   [
     feature ->
-    if gis:property-value feature "ctype" = 1 [ gis:set-drawing-color red    gis:fill feature 2.0] ;low
-    if gis:property-value feature "ctype" = 2 [ gis:set-drawing-color blue   gis:fill feature 2.0] ;mid
-    if gis:property-value feature "ctype" = 3 [ gis:set-drawing-color green  gis:fill feature 2.0] ;high
+    if gis:property-value feature "ctype" = 1 [ gis:set-drawing-color 108    gis:fill feature 2.0] ;low
+    if gis:property-value feature "ctype" = 2 [ gis:set-drawing-color 107   gis:fill feature 2.0] ;mid
+    if gis:property-value feature "ctype" = 3 [ gis:set-drawing-color 106  gis:fill feature 2.0] ;high
   ]
 
   ;Identify Polygon wit ID number
@@ -645,6 +649,16 @@ to set-h-social-type
     set y y + 1
   ]
   ask people with [h-social-type = 0] [set h-social-type 3]
+  ask people [
+    ifelse random 3 = 1
+    [
+      set big-destination true ; assign this person as someone who will have a school or work network
+    ]
+    [
+      set big-destination false
+    ]
+  ]
+
 end
 
 
@@ -1088,9 +1102,9 @@ end
 
 to set-speed
 
-  let average-speed-m first (item 0 my-csv-dataset)
-  let average-speed-c first (item 1 my-csv-dataset)
-  let average-speed-p first (item 2 my-csv-dataset)
+  set average-speed-m first (item 0 my-csv-dataset)
+  set average-speed-c first (item 1 my-csv-dataset)
+  set average-speed-p first (item 2 my-csv-dataset)
 
   ;show average-speed-m
   ;show average-speed-c
@@ -1476,6 +1490,24 @@ to update-time
 
   let bus-passengers (count people with [t-type = 3])
   let wait-turns (bus-passengers / capacity-public) ; indicates the number of turns people need to wait to catch a bus
+  ; calculate the average speed of people using each transportation type
+  let mean-speed-c mean [speed] of people with [t-type = 1]
+  let mean-speed-m mean [speed] of people with [t-type = 2]
+  let mean-speed-p mean [speed] of people with [t-type = 3]
+  ; make sure it's not 0
+    if mean-speed-c = 0
+  [
+    set mean-speed-c average-speed-c
+  ]
+  if mean-speed-m = 0
+  [
+    set mean-speed-m average-speed-m
+  ]
+  if mean-speed-p = 0
+  [
+    set mean-speed-p average-speed-p
+  ]
+
 
 
   ask people
@@ -1494,9 +1526,29 @@ to update-time
     ; Calculation of accumulated time to calculate the average time of travel per decision period
     if not arrived?
     [
-    set time-m (time-m + 2) ; dist-home-work / speed-mot / 100 * 60)
-    set time-c (time-c + 2) ; dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
-    set time-p (time-p + 2 + wait-time-p) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
+      ; we need to determine what mode the agent currently uses, and adjust the actual time and the expected time while using another mode of transport accordingly
+      if t-type = 1
+      [
+        set time-c (time-c + 2) ; dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
+        set time-m (time-m + (2 * (mean-speed-c / mean-speed-m))) ; dist-home-work / speed-mot / 100 * 60)
+        set time-p (time-p + (2 * (mean-speed-c / mean-speed-p)) + wait-time-p) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
+      ]
+
+      if t-type = 2
+      [
+        set time-c (time-c + (2 * (mean-speed-m / mean-speed-c))) ; dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
+        set time-m (time-m + 2) ; dist-home-work / speed-mot / 100 * 60)
+        set time-p (time-p + (2 * (mean-speed-m / mean-speed-p)) + wait-time-p) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
+      ]
+
+      if t-type = 3
+      [
+        set time-c (time-c + (2 * (mean-speed-p / mean-speed-c))) ; dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
+        set time-m (time-m + (2 * (mean-speed-p / mean-speed-m))) ; dist-home-work / speed-mot / 100 * 60)
+        set time-p (time-p + 2 + wait-time-p) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
+      ]
+
+
     ]
 
     ; Updates time for people according to the transport mode
@@ -1641,10 +1693,10 @@ ask people [
     ; Note Max 2 - since people can commute from anywhere to anywhere, the time calculation needs to be changed. I propose the following:
     ifelse time > 0
     [
-      ; the most "satifying time" may need to be based on moto, as the fastest mode
-      set time-mot ( distance home-location / speed-mot ) / time
-      set time-car ( distance home-location / speed-mot ) / time
-      set time-pub ( distance home-location / speed-mot ) / time
+      ; the most "satifying time" may need to be based on moto, as it is the fastest mode
+      set time-mot ( distance home-location / speed-mot ) / time-m
+      set time-car ( distance home-location / speed-mot ) / time-c
+      set time-pub ( distance home-location / speed-mot ) / time-p
     ]
     [
       set time-mot 1
@@ -1689,8 +1741,8 @@ end
 to update-experience
  ask people
   [
-   if t-type = 1 [set experience-mot experience-car + 1]
-   if t-type = 2 [set experience-car experience-mot + 1]
+   if t-type = 1 [set experience-car experience-car + 1]
+   if t-type = 2 [set experience-mot experience-mot + 1]
    if t-type = 3 [set experience-pub experience-pub + 1]
   ]
 end
@@ -1893,9 +1945,11 @@ to create-social-network-fast2
       create-links-with up-to-n-of (random-exponential 20) other people with [h-social-type = my-status] [set hidden? true]
       create-links-with up-to-n-of (random-exponential 5) other people [set hidden? true]
       ;; add 50% chance to generate these
-      if random 3 = 1
+      ;; Max note:
+      ;; Need to increase local clustering average to 0.4 - interconnect x-y immediate neighbors?
+      if big-destination
       [
-        create-links-with up-to-n-of (random-exponential 30) other people with [destination-community = my-destination] [set hidden? true]
+        create-links-with up-to-n-of (random-exponential 30) other people with [destination-community = my-destination and big-destination = true] [set hidden? true]
       ]
     ]
   ]
@@ -2196,7 +2250,7 @@ INPUTBOX
 86
 318
 scale-population
-2.0
+1.0
 1
 0
 Number
