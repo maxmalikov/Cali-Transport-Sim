@@ -2250,7 +2250,7 @@ INPUTBOX
 86
 318
 scale-population
-1.0
+2.0
 1
 0
 Number
@@ -2579,10 +2579,10 @@ true
 true
 "" ""
 PENS
-"average" 1.0 0 -10899396 true "" "plot mean [speed] of people"
-"car" 1.0 0 -2674135 true "" "plot mean [speed] of people with [t-type = 1]"
-"moto" 1.0 0 -16777216 true "" "plot mean [speed] of people with [t-type = 2]"
-"pub" 1.0 0 -13345367 true "" "plot mean [speed] of people with [t-type = 3]"
+"average" 1.0 0 -10899396 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people]"
+"car" 1.0 0 -2674135 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 1]]"
+"moto" 1.0 0 -16777216 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 2]]"
+"pub" 1.0 0 -13345367 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 3]]"
 
 MONITOR
 966
