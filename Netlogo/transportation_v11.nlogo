@@ -1251,7 +1251,9 @@ to commute
     let equiv-cars (cars + mot-equiv-car + pub-equiv-car)
    ; set density (equiv-cars * scaling-factor / 2) ; using adjusted number
     set density (0.1 * equiv-cars * (20000 / count people) ) ; DENSITY SHOULD BE THE NUMBER OF CARS ON ROADS DIVIDED THE "CAPACITY" OF THE ROAD, I'M CALCULATING IT AS THE NUMBER OF PEOPLE PER PATCH * X TIMES
-
+    ; motorcycles can get around traffic easier
+    if t-type = 2
+    [ set density density * 0.8 ]
 
  ; effect of road accidents
 
@@ -1659,9 +1661,9 @@ to update-scores-tech-attributes
     ; Note: should this number be 0? Or something else? Density will never be less than 0
     ifelse density >= 1                        ; high congestion increases stress, decreasing comfort
      [
-        set comfort-mot (comfort-m * (1 - prob-bad-weather) * (1 - density * 0.1))  ; bad weather and congestion have impact on mot comfort
-        set comfort-car (comfort-c * (1 - density * 0.3))                           ; congestion has a higher impact on car comfort, bad weather does not affect car comfort
-        set comfort-pub (comfort-p * (1 - prob-bad-weather) * (1 - density * 0.2))  ; bad weather and congestion have impact on public comfort
+        set comfort-mot (comfort-m * (1 - prob-bad-weather) * (1 - density * 0.02))  ; bad weather and congestion have impact on mot comfort
+        set comfort-car (comfort-c * (1 - density * 0.06))                           ; congestion has a higher impact on car comfort, bad weather does not affect car comfort
+        set comfort-pub (comfort-p * (1 - prob-bad-weather) * (1 - density * 0.04))  ; bad weather and congestion have impact on public comfort
      ]
      [
       set comfort-mot (comfort-m * (1 - prob-bad-weather)) ; bad weather and congestion have impact on mot comfort
@@ -2264,7 +2266,7 @@ Uncert-m
 Uncert-m
 0
 1
-0.5
+0.45
 0.01
 1
 NIL
@@ -2279,7 +2281,7 @@ Uncert-c
 Uncert-c
 0
 1
-0.5
+0.4
 0.01
 1
 NIL
@@ -2309,7 +2311,7 @@ Satisf-m
 Satisf-m
 0
 1
-0.5
+0.13
 0.01
 1
 NIL
@@ -2324,7 +2326,7 @@ Satisf-c
 Satisf-c
 0
 1
-0.5
+0.09
 0.01
 1
 NIL
@@ -2339,7 +2341,7 @@ Satisf-p
 Satisf-p
 0
 1
-0.5
+0.57
 0.01
 1
 NIL
@@ -2373,7 +2375,7 @@ true
 PENS
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 1 ]) / (count people)]"
 "moto" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 2 ]) / (count people)]"
-"pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 3 ]) / (count people)]"
+"pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 3 ]) / (count people)]"
 
 MONITOR
 1269
