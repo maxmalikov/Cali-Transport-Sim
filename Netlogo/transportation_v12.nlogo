@@ -1199,7 +1199,7 @@ to go
   if ticks > 1
   [
 
-    if ticks mod (30) = 0 ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
+    if ticks mod (30) = 0.000 ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
                           ; procedures that run every decision period
     [
       update-scores-tech-attributes ; calulates values for tech attributes to be used in satisfaction update for each agent in every decision tick
@@ -1771,7 +1771,8 @@ to update-uncertainty
 
    ; calculates uncertainty as the weighted average of the deviation of own experience and neighbors' experience. Alpha and Beta correspond to Hosftede variables.
     set uncertainty  ((alpha * (1 - myexperience)) + (beta * (1 - neighborsmymode / count link-neighbors)))
-show uncertainty
+
+    show mean [uncertainty] of people
   ]
 end
 
@@ -2918,9 +2919,9 @@ true
 true
 "" ""
 PENS
-"car" 1.0 0 -2674135 true "" "if ticks > 1 [plot (mean [uncertainty] of people with [t-type = 1] )]"
-"mot" 1.0 0 -16777216 true "" "if ticks > 1 [plot (mean [uncertainty] of people with [t-type = 2] )]"
-"pub" 1.0 0 -10649926 true "" "if ticks > 1 [plot (mean [uncertainty] of people with [t-type = 3] )]"
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 1] )]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 2] )]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 3] )]"
 
 PLOT
 1618
@@ -2958,9 +2959,9 @@ true
 false
 "" ""
 PENS
-"car" 1.0 0 -2674135 true "" "plot mean [cost-op-car] of people with [t-type = 1]"
-"mot" 1.0 0 -16777216 true "" "plot mean [cost-op-mot] of people with [t-type = 2]"
-"pub" 1.0 0 -10649926 true "" "plot mean [cost-op-pub] of people with [t-type = 3]"
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-car] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-mot] of people with [t-type = 2]]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-pub] of people with [t-type = 3]]"
 
 PLOT
 1950
@@ -2978,9 +2979,9 @@ true
 false
 "" ""
 PENS
-"car" 1.0 0 -2674135 true "" "plot mean [safety-car] of people with [t-type = 1]"
-"mot" 1.0 0 -16777216 true "" "plot mean [safety-mot] of people with [t-type = 2]"
-"pub" 1.0 0 -10649926 true "" "plot mean [safety-pub] of people with [t-type = 3]"
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-car] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-mot] of people with [t-type = 2]]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-pub] of people with [t-type = 3]]"
 
 MONITOR
 1837
@@ -3009,9 +3010,9 @@ true
 false
 "" ""
 PENS
-"car" 1.0 0 -2674135 true "" "plot mean [security-car] of people with [t-type = 1]"
-"mot" 1.0 0 -16777216 true "" "plot mean [security-mot] of people with [t-type = 2]"
-"pub" 1.0 0 -10649926 true "" "plot mean [security-pub] of people with [t-type = 3]"
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-car]] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-mot] of people with [t-type = 2]]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-pub] of people with [t-type = 3]]"
 
 PLOT
 2114
@@ -3029,9 +3030,9 @@ true
 false
 "" ""
 PENS
-"car" 1.0 0 -2674135 true "" "plot mean [comfort-car] of people with [t-type = 1]"
-"mot" 1.0 0 -16777216 true "" "plot mean [comfort-mot] of people with [t-type = 2]"
-"pub" 1.0 0 -10649926 true "" "plot mean [comfort-pub] of people with [t-type = 3]"
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-car] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-mot] of people with [t-type = 2]]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-pub] of people with [t-type = 3]]"
 
 PLOT
 2099
@@ -3049,9 +3050,9 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -2674135 true "" "plot mean [time-car] of people with [t-type = 1]"
-"pen-1" 1.0 0 -16777216 true "" "plot mean [time-mot] of people with [t-type = 2]"
-"pen-2" 1.0 0 -10649926 true "" "plot mean [time-pub] of people with [t-type = 3]"
+"default" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-car] of people with [t-type = 1]]"
+"pen-1" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-mot] of people with [t-type = 2]]"
+"pen-2" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-pub] of people with [t-type = 3]]"
 
 PLOT
 2267
@@ -3069,7 +3070,7 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot mean [pollution-tot] of people"
+"default" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [pollution-tot] }of people"
 
 MONITOR
 1919
