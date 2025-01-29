@@ -1255,6 +1255,7 @@ to commute
     if t-type = 2
     [ set density density * 0.8 ]
 
+
  ; effect of road accidents
 
     ; should we only count accidents on the original patch?
@@ -1772,7 +1773,6 @@ to update-uncertainty
    ; calculates uncertainty as the weighted average of the deviation of own experience and neighbors' experience. Alpha and Beta correspond to Hosftede variables.
     set uncertainty  ((alpha * (1 - myexperience)) + (beta * (1 - neighborsmymode / count link-neighbors)))
 
-    show mean [uncertainty] of people
   ]
 end
 
@@ -2209,7 +2209,7 @@ INPUTBOX
 73
 245
 deviation
-0.1
+0.0
 1
 0
 Number
@@ -2253,7 +2253,7 @@ INPUTBOX
 94
 318
 scale-population
-10.0
+5.0
 1
 0
 Number
@@ -2356,7 +2356,7 @@ CHOOSER
 inquiry-process
 inquiry-process
 "everybody" "most-used"
-1
+0
 
 PLOT
 1032
@@ -2924,30 +2924,10 @@ PENS
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 3] )]"
 
 PLOT
-1618
-41
-1778
-161
-cost-buy
-NIL
-NIL
-0.0
-10.0
-0.0
-1.0
-true
-false
-"" ""
-PENS
-"car" 1.0 0 -2674135 true "" "plot mean [cost-buy-car] of people with [t-type = 1]"
-"mot" 1.0 0 -16777216 true "" "plot mean [cost-buy-mot] of people with [t-type = 2]"
-"pub" 1.0 0 -10649926 true "" "plot mean [cost-buy-pub] of people with [t-type = 3]"
-
-PLOT
-1784
-41
-1944
-161
+1602
+38
+1762
+158
 Cost-op
 NIL
 NIL
@@ -2964,10 +2944,10 @@ PENS
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-pub] of people with [t-type = 3]]"
 
 PLOT
-1950
-42
-2110
-162
+1768
+39
+1928
+159
 safety
 NIL
 NIL
@@ -2995,10 +2975,10 @@ mean [wait-time-p] of people / 30
 11
 
 PLOT
-2280
-41
-2440
-161
+2098
+38
+2258
+158
 security
 NIL
 NIL
@@ -3010,15 +2990,15 @@ true
 false
 "" ""
 PENS
-"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-car]] of people with [t-type = 1]]"
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-car] of people with [t-type = 1]]"
 "mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-mot] of people with [t-type = 2]]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-pub] of people with [t-type = 3]]"
 
 PLOT
-2114
-42
-2274
-162
+1932
+39
+2092
+159
 comfort
 NIL
 NIL
@@ -3070,7 +3050,7 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [pollution-tot] }of people"
+"default" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [pollution-tot] of people]"
 
 MONITOR
 1919
