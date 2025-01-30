@@ -6,7 +6,7 @@ breed [people person] ;simulate people
 ;nw:save-gexf
 ;nw:save-gml  "example.graphml"
 
-;---------------Gloabl Variables------------------
+;---------------Global Variables------------------
 globals[
   my-gis-dataset         ;gis dataset
   my-csv-dataset         ;list with parameters imported from csv
@@ -151,6 +151,7 @@ people-own[
   moto-owner    ; 1-yes, 0-no
   arrived?      ; true- made it to destination, false- commuting
   big-destination ; used to determine whether this person should be part of a school/work network
+  family?        ; used to indicate that this person is part of a family. Specifically, used during link setup
 ]
 
 links-own [
@@ -205,22 +206,23 @@ to setup
 
   set-speed
 
-
-
-  ;create-small-world-network
-  ;create-small-world-network2
-  ;create-small-world-network3
-  ;create-preferential-network
-  ;create-social-network
-  ;create-social-network-fast
-  create-social-network-fast2
+  ; we can change the network generation method here
+  create-social-network-fast8
   ;nw:save-matrix "matrix-0-sn2.csv"
-  ;csv:to-file "results-0-sn2.csv" [ (list who h-social-type link-neighbors [h-social-type] of link-neighbors) ] of turtles
-  show "Initialization Done!"
+  ;csv:to-file "results-0-sn8.csv" [ (list who h-social-type link-neighbors [h-social-type] of link-neighbors) ] of turtles
+  ; ------ exporting data for histograms -----------------
+;  let header ["id" "est" "number of links"]
+;  let export-data [ (list who h-social-type count link-neighbors) ] of turtles
+;  set export-data fput header export-data
+;  csv:to-file "results-0-sn8_2.csv" export-data
+  ; ---------------------------------------------------
+  show "Initialization Done! Time it took:"
   show timer
   ;nw:save-graphml "sim_network.graphml"
   ;profiler:stop
   ;print profiler:report
+  ; test
+
 end
 
 ;1.2 Draw the Doundary and Assign each Polygon ID
@@ -634,12 +636,12 @@ to set-h-social-type
         let med  [pmed] of patches with  [centroid? = true and PID = y]
 
         let per-low precision (item 0 low) 2
-        show per-low
+        ;show per-low
         if per-low != 0[
           ask n-of (round (people-count * per-low)) people with [h-social-type = 0] [set h-social-type  1]
         ]
         let per-med precision (item 0 med) 2
-        show per-med
+        ;show per-med
         if per-med != 0[
           ask n-of (round (people-count * per-med)) people with [h-social-type = 0] [set h-social-type 2]
         ]
@@ -650,6 +652,7 @@ to set-h-social-type
   ]
   ask people with [h-social-type = 0] [set h-social-type 3]
   ask people [
+    set family? false
     ifelse random 3 = 1
     [
       set big-destination true ; assign this person as someone who will have a school or work network
@@ -1916,6 +1919,57 @@ to update-age-people
 end
 
 ;; This is the network generating algorithm we will be using for now.
+to create-social-network-fast1
+
+  ; create variables
+  let my-node one-of people
+  let my-status [h-social-type] of my-node
+  let my-commune [hPoly] of my-node
+  let my-destination [destination-community] of my-node
+  let my-communes up-to-n-of 2 people
+  let my-statuses up-to-n-of 2 people
+  let my-other-people up-to-n-of 2 people
+  let my-workers up-to-n-of 2 people
+  let my-connections up-to-n-of 2 people
+  ; seeding the links for preferential attachment
+  ask people with [h-social-type = 1]
+  [
+    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
+  ]
+  ask people with [h-social-type = 2]
+  [
+    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
+  ]
+  ask people with [h-social-type = 3]
+  [
+    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
+  ]
+
+  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
+    set my-node one-of [both-ends] of one-of links
+    set my-status [h-social-type] of my-node
+    set my-commune [hPoly] of my-node
+    set my-destination [destination-community] of my-node
+    set my-communes up-to-n-of (random-exponential 15) people with [hPoly = my-commune]
+    set my-statuses up-to-n-of (random-exponential 20) people with [h-social-type = my-status]
+    set my-other-people up-to-n-of (random-exponential 5) people
+    ifelse [big-destination] of my-node
+      [
+      set  my-workers up-to-n-of (random-exponential 30) people with [destination-community = my-destination and big-destination = true]
+      ]
+    [
+      set my-workers no-turtles
+    ]
+
+    ask my-node [
+      set my-connections other (turtle-set my-communes my-statuses my-other-people my-workers)
+      create-links-with my-connections [set hidden? true]
+    ]
+  ]
+
+end
+
+;; This is the network generating algorithm we will be using for now.
 to create-social-network-fast2
 
   ; create variables
@@ -1944,21 +1998,543 @@ to create-social-network-fast2
     set my-destination [destination-community] of my-node
     ask my-node [
       ;; These numbers can be adjusted
-      create-links-with up-to-n-of (random-exponential 15) other people with [hPoly = my-commune] [set hidden? true]
-      create-links-with up-to-n-of (random-exponential 20) other people with [h-social-type = my-status] [set hidden? true]
-      create-links-with up-to-n-of (random-exponential 5) other people [set hidden? true]
+      create-links-with up-to-n-of (random-exponential 15) other people with [hPoly = my-commune] [set hidden? true set relationship-type "family"]
+      create-links-with up-to-n-of (random-exponential 20) other people with [h-social-type = my-status] [set hidden? true set relationship-type "other"]
+      create-links-with up-to-n-of (random-exponential 5) other people [set hidden? true set relationship-type "other"]
       ;; add 50% chance to generate these
       ;; Max note:
       ;; Need to increase local clustering average to 0.4 - interconnect x-y immediate neighbors?
       if big-destination
       [
-        create-links-with up-to-n-of (random-exponential 30) other people with [destination-community = my-destination and big-destination = true] [set hidden? true]
+        create-links-with up-to-n-of (random-exponential 30) other people with [destination-community = my-destination and big-destination = true] [set hidden? true set relationship-type "other"]
       ]
     ]
   ]
 
 end
 
+;; This is the network generating algorithm we will be using for now.
+to create-social-network-fast3
+
+  ; create variables
+  let my-node one-of people
+  let other-node one-of people
+  let my-link one-of links
+  let my-nodes up-to-n-of 5 people ; only for initialization; otherwise it will be link ends
+  let my-status [h-social-type] of my-node
+  let my-commune [hPoly] of my-node
+  let my-destination [destination-community] of my-node
+  let my-big-destination false
+  let our-poly up-to-n-of 5 people
+  let our-type up-to-n-of 5 people
+  let our-others up-to-n-of 5 people
+  let our-work up-to-n-of 5 people
+  let our-connections (turtle-set our-type our-others our-work) ; just initializing the variable
+
+  ; seeding the links for preferential attachment
+  ask people with [h-social-type = 1]
+  [
+    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true set relationship-type "family"]
+  ]
+  ask people with [h-social-type = 2]
+  [
+    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true  set relationship-type "family"]
+  ]
+  ask people with [h-social-type = 3]
+  [
+    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true  set relationship-type "family"]
+  ]
+
+  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
+    set my-link one-of links with [relationship-type = "family"]
+    set my-nodes [both-ends] of my-link
+    set my-node one-of my-nodes
+    set other-node my-nodes who-are-not my-node
+    set my-status [h-social-type] of my-node
+    set my-commune [hPoly] of my-node
+    set my-destination [destination-community] of my-node
+    set my-big-destination [big-destination] of my-node
+    set our-poly up-to-n-of (random-exponential 15) people with [hPoly = my-commune]
+    set our-type up-to-n-of (random-exponential 5) people with [h-social-type = my-status]
+    set our-others up-to-n-of (random-exponential 5) people
+    ifelse my-big-destination
+    [
+        set our-work up-to-n-of (random-exponential 15) other people with [destination-community = my-destination and big-destination = true]
+    ]
+    [
+      set our-work no-turtles
+    ]
+    ; combine all nodes into one agentset; except our commune links, which need to be flagged differently
+    set our-connections (turtle-set our-type our-others our-work)
+
+    ask my-nodes [
+      ;; These numbers can be adjusted
+      create-links-with other our-poly [set hidden? true set relationship-type "family"]
+      create-links-with other our-connections [set hidden? true set relationship-type "other"]
+    ]
+    ; close the triangles
+;    ask people
+;    [
+;      let friends link-neighbors
+;      ask n-of (count friends / 2) link-neighbors
+;      [
+;        create-links-with other friends [set hidden? true]
+;      ]
+;
+;    ]
+
+    ; Create synthetic families and friends. Ask 50% of people to form clusters with 1-4 other people in the same patch (or nearby patch if needed).
+;    ask n-of ( 8500 / scale-population ) people ; we are only asking 50%
+;    [
+;      let family people-on (patch-set patch-here)
+;      set family family with [family? = true]
+;      let family-size (2 + random 15)
+;      if ( count family ) < family-size
+;      [
+;        set family people-on (patch-set patch-here neighbors)
+;      ]
+;      let final-family up-to-n-of family-size family
+;      ask final-family
+;      [
+;        create-links-with other final-family  [set hidden? true]
+;        set family? true
+;      ]
+;    ]
+
+  ]
+
+end
+
+
+to create-social-network-fast4
+
+  ; create variables
+  let my-node one-of people
+  let other-node one-of people
+  let my-link one-of links
+  let my-family n-of 2 people ; only for initialization;
+  let my-status [h-social-type] of my-node
+  let my-commune [hPoly] of my-node
+  let my-destination [destination-community] of my-node
+  ; seeding the links for preferential attachment
+  ask people with [h-social-type = 1]
+  [
+    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
+  ]
+  ask people with [h-social-type = 2]
+  [
+    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
+  ]
+  ask people with [h-social-type = 3]
+  [
+    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
+  ]
+
+  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
+    set my-node one-of [both-ends] of one-of links
+    set my-status [h-social-type] of my-node
+    set my-commune [hPoly] of my-node
+    set my-destination [destination-community] of my-node
+    ask my-node [
+
+
+      set my-family other people-on (patch-set patch-here)
+      ;set my-family my-family with [family? = true]
+      let family-size random-exponential 5
+      if ( count my-family ) < family-size
+      [
+        set my-family other people-on (patch-set patch-here neighbors)
+      ]
+
+        create-links-with up-to-n-of family-size my-family  [set hidden? true set relationship-type "family"]
+      ;  set family? true
+
+
+      ;set my-family other people-on (patch-set patch-here neighbors)
+      ;; These numbers can be adjusted
+      ;create-links-with up-to-n-of (random-exponential 7) other people with [hPoly = my-commune] [set hidden? true set relationship-type "family"]
+      ;create-links-with up-to-n-of (random-exponential 7) my-family [set hidden? true set relationship-type "family"]
+      create-links-with up-to-n-of (random-exponential 5) other people with [h-social-type = my-status] [set hidden? true set relationship-type "other"]
+      ;create-links-with up-to-n-of (random-exponential 3) other people [set hidden? true set relationship-type "other"]
+      ;; add 50% chance to generate these
+      ;; Max note:
+      ;; Need to increase local clustering average to 0.4 - interconnect x-y immediate neighbors?
+      if big-destination
+      [
+        create-links-with up-to-n-of (random-exponential 15) other people with [destination-community = my-destination and big-destination = true] [set hidden? true set relationship-type "other"]
+      ]
+    ]
+  ]
+  let family-links n-of (count people / 3 ) links with [ relationship-type = "family"]
+  ask family-links
+  [
+    set my-link self
+    set my-node [end1] of my-link
+    set other-node [end2] of my-link
+    ask other-node
+    [
+      ;let to-link
+      create-links-with other [ link-neighbors ] of my-node [set hidden? true]
+      ;create-links-with other [ link-neighbors ] of other-node
+
+    ]
+    ask my-node
+    [
+      ;let to-link
+      create-links-with other [ link-neighbors ] of other-node [set hidden? true]
+    ]
+  ]
+
+end
+
+to create-social-network-fast5
+
+  ; create variables
+  let my-node one-of people
+  let other-node one-of people
+  let my-link one-of links
+  let my-nodes up-to-n-of 5 people ; only for initialization; otherwise it will be link ends
+  let my-status [h-social-type] of my-node
+  let my-commune [hPoly] of my-node
+  let my-destination [destination-community] of my-node
+  ; seeding the links for preferential attachment
+  ask people with [h-social-type = 1]
+  [
+    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
+  ]
+  ask people with [h-social-type = 2]
+  [
+    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
+  ]
+  ask people with [h-social-type = 3]
+  [
+    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
+  ]
+
+  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
+    set my-node one-of [both-ends] of one-of links
+    set my-status [h-social-type] of my-node
+    set my-commune [hPoly] of my-node
+    set my-destination [destination-community] of my-node
+    ask my-node [
+      ;; These numbers can be adjusted
+      create-links-with up-to-n-of (random-exponential 7) other people with [hPoly = my-commune] [set hidden? true set relationship-type "family"]
+      create-links-with up-to-n-of (random-exponential 5) other people with [h-social-type = my-status] [set hidden? true set relationship-type "other"]
+      ;create-links-with up-to-n-of (random-exponential 3) other people [set hidden? true set relationship-type "other"]
+      ;; add 50% chance to generate these
+      ;; Max note:
+      ;; Need to increase local clustering average to 0.4 - interconnect x-y immediate neighbors?
+      if big-destination
+      [
+        create-links-with up-to-n-of (random-exponential 15) other people with [destination-community = my-destination and big-destination = true] [set hidden? true set relationship-type "other"]
+      ]
+    ]
+  ]
+  let family-links n-of (count people / 10 ) links with [ relationship-type = "family"]
+  ask family-links
+  [
+    set my-link self
+    set my-node [end1] of my-link
+    set other-node [end2] of my-link
+    ask other-node
+    [
+      ;let to-link
+      create-links-with other [ link-neighbors ] of my-node [set hidden? true]
+      ;create-links-with other [ link-neighbors ] of other-node
+
+    ]
+    ask my-node
+    [
+      ;let to-link
+      create-links-with other [ link-neighbors ] of other-node [set hidden? true]
+    ]
+  ]
+
+end
+
+;; This is the network generating algorithm we will be using for now.
+to create-social-network-fast6
+
+  ; create variables
+  let my-node one-of people
+  let my-status [h-social-type] of my-node
+  let my-commune [hPoly] of my-node
+  let my-destination [destination-community] of my-node
+  let my-communes up-to-n-of 2 people
+  let my-statuses up-to-n-of 2 people
+  let my-other-people up-to-n-of 2 people
+  let my-workers up-to-n-of 2 people
+  let my-connections up-to-n-of 2 people
+  ; seeding the links for preferential attachment
+  ask people with [h-social-type = 1]
+  [
+    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
+  ]
+  ask people with [h-social-type = 2]
+  [
+    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
+  ]
+  ask people with [h-social-type = 3]
+  [
+    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
+  ]
+
+  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
+    set my-node one-of [both-ends] of one-of links
+    set my-status [h-social-type] of my-node
+    set my-commune [hPoly] of my-node
+    set my-destination [destination-community] of my-node
+    set my-communes up-to-n-of (random-exponential 7) people with [hPoly = my-commune]
+    set my-statuses up-to-n-of (random-exponential 5) people with [h-social-type = my-status]
+    ;set my-other-people up-to-n-of (random-exponential 5) people
+    ifelse ([big-destination] of my-node = true)
+      [
+      set  my-workers up-to-n-of (random-exponential 15) people with [destination-community = my-destination and big-destination = true]
+      ]
+    [
+      set my-workers no-turtles
+    ]
+
+    ask my-node [
+      set my-connections other (turtle-set my-communes my-statuses my-workers)
+      create-links-with my-connections [set hidden? true]
+    ]
+  ]
+
+       ;close the triangles
+  ask n-of (count people / 20) people
+  [
+    let friends link-neighbors
+    ask n-of (count friends / 5 ) friends
+    [
+      create-links-with other friends [set hidden? true]
+    ]
+
+  ]
+
+end
+
+
+;; This is the network generating algorithm we will be using for now.
+to create-social-network-fast7
+  let connections n-of 5 people
+
+  ; for each comunity, connect families
+  let families people
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set families people with [hPoly = n]
+
+    while [count families > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-exponential 30) / 3) families
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set families families who-are-not connections
+    ]
+  ]
+
+  ; for each comunity, connect neighbors
+  let neighborinos people
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set neighborinos people with [hPoly = n]
+
+    while [count neighborinos > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of (random-exponential 10) neighborinos
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set neighborinos neighborinos who-are-not connections
+    ]
+  ]
+
+  ; for each social class, connect friends
+  let friends people
+
+  foreach [1 2 3]
+  [
+    n -> set friends people with [h-social-type = n]
+
+    while [count friends > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-exponential 20) / 2) friends
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set friends friends who-are-not connections
+    ]
+  ]
+
+   ;   add some social media links
+  let my-node one-of people
+  let all-my-links links
+
+  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
+    set my-node one-of [both-ends] of one-of all-my-links
+    ask my-node
+    [
+     create-links-with up-to-n-of ((random-exponential 20) / 5) other people [set hidden? true]
+    ]
+  ]
+
+  ; connect workplaces. no schools since students do not generally drive
+  let workplaces people with [big-destination = true]
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set workplaces people with [destination-community = n and big-destination = true]
+
+    while [count workplaces > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-exponential 150) / 2) workplaces
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set workplaces workplaces who-are-not connections
+    ]
+  ]
+
+
+
+end
+
+;---------------------------------------------------------
+to create-social-network-fast8 ; using pareto distribution
+  let connections n-of 5 people
+
+  ; for each comunity, connect families
+  let families people
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set families people with [hPoly = n]
+
+    while [count families > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 4)) families
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set families families who-are-not connections
+    ]
+  ]
+
+  ; for each comunity, connect neighbors
+  let neighborinos people
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set neighborinos people with [hPoly = n]
+
+    while [count neighborinos > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 2) * (1 + random-float 7)) neighborinos
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set neighborinos neighborinos who-are-not connections
+    ]
+  ]
+
+  ; for each social class, connect friends
+  let friends people
+
+  foreach [1 2 3]
+  [
+    n -> set friends people with [h-social-type = n]
+
+    while [count friends > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.5) * (1 + random-float 7)) friends
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set friends friends who-are-not connections
+    ]
+  ]
+
+   ; for each social class, establish business connections
+  let business people
+
+  foreach [1 2 3]
+  [
+    n -> set business people with [h-social-type = n]
+
+    while [count business > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.5) * (1 + random-float 7)) business
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set business business who-are-not connections
+    ]
+  ]
+
+;   add some social media links
+
+  let all-people people
+      while [count all-people > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 4)) all-people
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set all-people all-people who-are-not connections
+    ]
+
+;  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
+;    set my-node one-of [both-ends] of one-of all-my-links
+;    ask my-node
+;    [
+;     create-links-with up-to-n-of ((random-exponential 20) / 5) other people [set hidden? true]
+;    ]
+;  ]
+
+   ;connect workplaces. no schools since students do not generally drive
+  let workplaces people with [big-destination = true]
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set workplaces people with [destination-community = n and big-destination = true]
+
+    while [count workplaces > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 65)) workplaces
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set workplaces workplaces who-are-not connections
+    ]
+  ]
+
+
+
+end
 
 
 to make-link
@@ -1996,6 +2572,19 @@ to-report global-clustering-coefficient
   let closed-triplets sum [ nw:clustering-coefficient * count my-links * (count my-links - 1) ] of turtles
   let triplets sum [ count my-links * (count my-links - 1) ] of turtles
   report closed-triplets / triplets
+end
+
+to-report random-pareto [xmin a]
+  let u random-float 1  ;; Generate a random number
+  if u = 0 [ set u 1e-10 ] ; unneeded since 1 is never generated
+  ; report (xmin * ((u) ^ (-1 / a))) ;; alpha of 51/50 (1.02) will give us a mean of 51
+  report sqrt (xmin * ((u) ^ (-1 / a))) ;; alpha of 51/50 (1.02) will give us a mean of 51
+
+
+end
+
+to-report clus
+  report mean [ nw:clustering-coefficient ] of turtles
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -2253,7 +2842,7 @@ INPUTBOX
 94
 318
 scale-population
-10.0
+1.0
 1
 0
 Number
@@ -2662,10 +3251,10 @@ PENS
 "pub" 1.0 0 -13345367 true "" "plot count people with [safety = 1 and t-type = 3]"
 
 TEXTBOX
-2078
-184
-2228
-202
+2040
+191
+2190
+209
 travel information
 14
 103.0
@@ -2924,30 +3513,10 @@ PENS
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 3] )]"
 
 PLOT
-1618
-41
-1778
-161
-cost-buy
-NIL
-NIL
-0.0
-10.0
-0.0
-1.0
-true
-false
-"" ""
-PENS
-"car" 1.0 0 -2674135 true "" "plot mean [cost-buy-car] of people with [t-type = 1]"
-"mot" 1.0 0 -16777216 true "" "plot mean [cost-buy-mot] of people with [t-type = 2]"
-"pub" 1.0 0 -10649926 true "" "plot mean [cost-buy-pub] of people with [t-type = 3]"
-
-PLOT
-1784
-41
-1944
-161
+1599
+45
+1759
+165
 Cost-op
 NIL
 NIL
@@ -2964,10 +3533,10 @@ PENS
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-pub] of people with [t-type = 3]]"
 
 PLOT
-1950
-42
-2110
-162
+1765
+46
+1925
+166
 safety
 NIL
 NIL
@@ -2995,10 +3564,10 @@ mean [wait-time-p] of people / 30
 11
 
 PLOT
-2280
-41
-2440
-161
+2095
+45
+2255
+165
 security
 NIL
 NIL
@@ -3010,15 +3579,15 @@ true
 false
 "" ""
 PENS
-"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-car]] of people with [t-type = 1]]"
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-car] of people with [t-type = 1]]"
 "mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-mot] of people with [t-type = 2]]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-pub] of people with [t-type = 3]]"
 
 PLOT
-2114
-42
-2274
-162
+1929
+46
+2089
+166
 comfort
 NIL
 NIL
@@ -3070,7 +3639,7 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [pollution-tot] }of people"
+"default" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [pollution-tot] of people]"
 
 MONITOR
 1919
@@ -3102,6 +3671,17 @@ PENS
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"repetition\"])]"
 "mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"repetition\"])]"
 "pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"repetition\"])]"
+
+MONITOR
+1053
+157
+1202
+202
+average degree
+2 * (count links / count people)
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
