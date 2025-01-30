@@ -207,14 +207,22 @@ to setup
   set-speed
 
   ; we can change the network generation method here
-  create-social-network-fast7
+  create-social-network-fast8
   ;nw:save-matrix "matrix-0-sn2.csv"
-  ;csv:to-file "results-0-sn7-2.csv" [ (list who h-social-type link-neighbors [h-social-type] of link-neighbors) ] of turtles
-  show "Initialization Done!"
+  ;csv:to-file "results-0-sn8.csv" [ (list who h-social-type link-neighbors [h-social-type] of link-neighbors) ] of turtles
+  ; ------ exporting data for histograms -----------------
+;  let header ["id" "est" "number of links"]
+;  let export-data [ (list who h-social-type count link-neighbors) ] of turtles
+;  set export-data fput header export-data
+;  csv:to-file "results-0-sn8_2.csv" export-data
+  ; ---------------------------------------------------
+  show "Initialization Done! Time it took:"
   show timer
   ;nw:save-graphml "sim_network.graphml"
   ;profiler:stop
   ;print profiler:report
+  ; test
+
 end
 
 ;1.2 Draw the Doundary and Assign each Polygon ID
@@ -2376,7 +2384,7 @@ to create-social-network-fast7
     set my-node one-of [both-ends] of one-of all-my-links
     ask my-node
     [
-     create-links-with up-to-n-of ((random-exponential 10) / 2) other people [set hidden? true]
+     create-links-with up-to-n-of ((random-exponential 20) / 5) other people [set hidden? true]
     ]
   ]
 
@@ -2392,6 +2400,131 @@ to create-social-network-fast7
       ;show count connections
       ; set connections up-to-n-of (random-pareto 1 1.2) families
       set connections up-to-n-of ((random-exponential 150) / 2) workplaces
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set workplaces workplaces who-are-not connections
+    ]
+  ]
+
+
+
+end
+
+;---------------------------------------------------------
+to create-social-network-fast8 ; using pareto distribution
+  let connections n-of 5 people
+
+  ; for each comunity, connect families
+  let families people
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set families people with [hPoly = n]
+
+    while [count families > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 4)) families
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set families families who-are-not connections
+    ]
+  ]
+
+  ; for each comunity, connect neighbors
+  let neighborinos people
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set neighborinos people with [hPoly = n]
+
+    while [count neighborinos > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 2) * (1 + random-float 7)) neighborinos
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set neighborinos neighborinos who-are-not connections
+    ]
+  ]
+
+  ; for each social class, connect friends
+  let friends people
+
+  foreach [1 2 3]
+  [
+    n -> set friends people with [h-social-type = n]
+
+    while [count friends > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.5) * (1 + random-float 7)) friends
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set friends friends who-are-not connections
+    ]
+  ]
+
+   ; for each social class, establish business connections
+  let business people
+
+  foreach [1 2 3]
+  [
+    n -> set business people with [h-social-type = n]
+
+    while [count business > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.5) * (1 + random-float 7)) business
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set business business who-are-not connections
+    ]
+  ]
+
+;   add some social media links
+
+  let all-people people
+      while [count all-people > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 4)) all-people
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set all-people all-people who-are-not connections
+    ]
+
+;  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
+;    set my-node one-of [both-ends] of one-of all-my-links
+;    ask my-node
+;    [
+;     create-links-with up-to-n-of ((random-exponential 20) / 5) other people [set hidden? true]
+;    ]
+;  ]
+
+   ;connect workplaces. no schools since students do not generally drive
+  let workplaces people with [big-destination = true]
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set workplaces people with [destination-community = n and big-destination = true]
+
+    while [count workplaces > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 65)) workplaces
       ask connections [
         create-links-with other connections [set hidden? true]
       ]
@@ -2442,9 +2575,16 @@ to-report global-clustering-coefficient
 end
 
 to-report random-pareto [xmin a]
-  ;let u random-float 1  ;; Generate a random number in (0,1]
-  ;report xmin * ((1 - u) ^ (-1 / a)) ;; alpha of 51/50 (1.02) will give us a mean of 51
-  report xmin / ((random-float 1) ^ (1 / a))
+  let u random-float 1  ;; Generate a random number
+  if u = 0 [ set u 1e-10 ] ; unneeded since 1 is never generated
+  ; report (xmin * ((u) ^ (-1 / a))) ;; alpha of 51/50 (1.02) will give us a mean of 51
+  report sqrt (xmin * ((u) ^ (-1 / a))) ;; alpha of 51/50 (1.02) will give us a mean of 51
+
+
+end
+
+to-report clus
+  report mean [ nw:clustering-coefficient ] of turtles
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -2702,7 +2842,7 @@ INPUTBOX
 94
 318
 scale-population
-2.0
+1.0
 1
 0
 Number
