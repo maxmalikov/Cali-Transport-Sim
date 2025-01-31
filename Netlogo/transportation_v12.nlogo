@@ -1775,7 +1775,7 @@ to update-uncertainty
    ; calculates uncertainty as the weighted average of the deviation of own experience and neighbors' experience. Alpha and Beta correspond to Hosftede variables.
     set uncertainty  ((alpha * (1 - myexperience)) + (beta * (1 - neighborsmymode / count link-neighbors)))
 
-    show mean [uncertainty] of people
+    ;show mean [uncertainty] of people
   ]
 end
 
