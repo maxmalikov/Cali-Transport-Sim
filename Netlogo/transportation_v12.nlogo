@@ -4100,7 +4100,7 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 <experiments>
-  <experiment name="proofs-threshholds" repetitions="10" runMetricsEveryStep="false">
+  <experiment name="proofs-threshholds" repetitions="40" runMetricsEveryStep="false">
     <setup>setup</setup>
     <go>go</go>
     <metric>count people</metric>
