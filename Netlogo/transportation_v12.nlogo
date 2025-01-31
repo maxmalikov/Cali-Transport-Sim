@@ -2856,7 +2856,7 @@ Uncert-m
 Uncert-m
 0
 1
-0.52
+0.6
 0.01
 1
 NIL
@@ -2871,7 +2871,7 @@ Uncert-c
 Uncert-c
 0
 1
-0.4
+0.5
 0.01
 1
 NIL
@@ -2886,7 +2886,7 @@ Uncert-p
 Uncert-p
 0
 1
-0.4
+0.3
 0.01
 1
 NIL
@@ -3749,9 +3749,9 @@ true
 false
 "" ""
 PENS
-"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"deliberate\"])]"
-"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"deliberate\"])]"
-"pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"deliberate\"])]"
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"deliberation\"])]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"deliberation\"])]"
+"pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"deliberation\"])]"
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -4101,6 +4101,27 @@ NetLogo 6.4.0
 @#$#@#$#@
 <experiments>
   <experiment name="proofs-threshholds" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count people</metric>
+    <metric>(count people with [t-type = 1]) / (count people)</metric>
+    <metric>(count people with [t-type = 2]) / (count people)</metric>
+    <metric>(count people with [t-type = 3]) / (count people)</metric>
+    <metric>count people with [type-choice = "repetition"]</metric>
+    <metric>count people with [type-choice = "imitation"]</metric>
+    <metric>count people with [type-choice = "deliberation"]</metric>
+    <metric>count people with [type-choice = "inquiry"]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 1]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 2]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 3]</metric>
+    <metric>mean [satisfaction] of people</metric>
+    <metric>mean [uncertainty] of people with [t-type = 1]</metric>
+    <metric>mean [uncertainty] of people with [t-type = 2]</metric>
+    <metric>mean [uncertainty] of people with [t-type = 3]</metric>
+    <metric>mean [uncertainty] of people</metric>
+    <runMetricsCondition>ticks mod 30 = 1 OR ticks mod 30 = 2</runMetricsCondition>
+  </experiment>
+  <experiment name="proofs" repetitions="10" runMetricsEveryStep="false">
     <setup>setup</setup>
     <go>go</go>
     <metric>count people</metric>
