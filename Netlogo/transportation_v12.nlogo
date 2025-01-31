@@ -1775,7 +1775,7 @@ to update-uncertainty
    ; calculates uncertainty as the weighted average of the deviation of own experience and neighbors' experience. Alpha and Beta correspond to Hosftede variables.
     set uncertainty  ((alpha * (1 - myexperience)) + (beta * (1 - neighborsmymode / count link-neighbors)))
 
-    show mean [uncertainty] of people
+    ;show mean [uncertainty] of people
   ]
 end
 
@@ -2615,7 +2615,7 @@ ticks
 30.0
 
 BUTTON
-5
+9
 10
 72
 43
@@ -2848,10 +2848,10 @@ scale-population
 Number
 
 SLIDER
-3
-331
-100
-364
+1
+354
+98
+387
 Uncert-m
 Uncert-m
 0
@@ -2863,10 +2863,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-3
-368
-100
-401
+1
+391
+98
+424
 Uncert-c
 Uncert-c
 0
@@ -2878,25 +2878,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-3
-405
-100
-438
+1
+428
+98
+461
 Uncert-p
 Uncert-p
 0
 1
-0.45
+0.4
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-103
-330
-196
-363
+101
+353
+194
+386
 Satisf-m
 Satisf-m
 0
@@ -2908,10 +2908,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-102
-368
-196
-401
+100
+391
+194
+424
 Satisf-c
 Satisf-c
 0
@@ -2923,10 +2923,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-103
-405
-196
-438
+101
+428
+194
+461
 Satisf-p
 Satisf-p
 0
@@ -2938,10 +2938,10 @@ NIL
 HORIZONTAL
 
 CHOOSER
-13
-457
-151
-502
+11
+480
+149
+525
 inquiry-process
 inquiry-process
 "everybody" "most-used"
@@ -3001,10 +3001,10 @@ count people with [t-type = 3] / count people
 11
 
 INPUTBOX
-89
-140
-184
-200
+83
+109
+178
+169
 Time-steps
 10.0
 1
@@ -3654,8 +3654,8 @@ mean [wait-time-p] of people
 
 PLOT
 1840
-635
-2040
+665
+2000
 785
 Repetition
 NIL
@@ -3682,6 +3682,76 @@ average degree
 17
 1
 11
+
+PLOT
+2006
+666
+2166
+786
+Imitation
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"imitation\"])]"
+"moto" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"imitation\"])]"
+"pub2" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"imitation\"])]"
+
+TEXTBOX
+67
+329
+217
+347
+Thresholds
+14
+103.0
+1
+
+PLOT
+2170
+666
+2330
+786
+Inquiry
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"inquiry\"])]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"inquiry\"])]"
+"pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"inquiry\"])]"
+
+PLOT
+2095
+541
+2255
+661
+Deliberate
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"deliberate\"])]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"deliberate\"])]"
+"pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"deliberate\"])]"
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -4029,6 +4099,71 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="proofs-threshholds" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count people</metric>
+    <metric>(count people with [t-type = 1]) / (count people)</metric>
+    <metric>(count people with [t-type = 2]) / (count people)</metric>
+    <metric>(count people with [t-type = 3]) / (count people)</metric>
+    <metric>count people with [type-choice = "repetition"]</metric>
+    <metric>count people with [type-choice = "imitation"]</metric>
+    <metric>count people with [type-choice = "deliberation"]</metric>
+    <metric>count people with [type-choice = "inquiry"]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 1]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 2]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 3]</metric>
+    <metric>mean [satisfaction] of people</metric>
+    <metric>mean [uncertainty] of people with [t-type = 1]</metric>
+    <metric>mean [uncertainty] of people with [t-type = 2]</metric>
+    <metric>mean [uncertainty] of people with [t-type = 3]</metric>
+    <metric>mean [uncertainty] of people</metric>
+    <metric>count people with [safety = 1 and t-type = 1]</metric>
+    <metric>count people with [safety = 1 and t-type = 2]</metric>
+    <metric>count people with [safety = 1 and t-type = 3]</metric>
+    <metric>count people with [safety = 1]</metric>
+    <metric>count people with [security = 1 and t-type = 1]</metric>
+    <metric>count people with [security = 1 and t-type = 2]</metric>
+    <metric>count people with [security = 1 and t-type = 3]</metric>
+    <metric>count people with [security = 1]</metric>
+    <metric>sum [pollution] of people with [t-type = 1]</metric>
+    <metric>sum [pollution] of people with [t-type = 2]</metric>
+    <metric>sum [pollution] of people with [t-type = 3]</metric>
+    <metric>sum [pollution] of people</metric>
+    <metric>sum [time] of people with [t-type = 1]</metric>
+    <metric>sum [time] of people with [t-type = 2]</metric>
+    <metric>sum [time] of people with [t-type = 3]</metric>
+    <metric>sum [time] of people</metric>
+    <metric>mean [time] of people with [t-type = 1]</metric>
+    <metric>mean [time] of people with [t-type = 2]</metric>
+    <metric>mean [time] of people with [t-type = 3]</metric>
+    <metric>mean [time] of people</metric>
+    <metric>sum [kms] of people with [t-type = 1]</metric>
+    <metric>sum [kms] of people with [t-type = 2]</metric>
+    <metric>sum [kms] of people with [t-type = 3]</metric>
+    <metric>sum [kms] of people</metric>
+    <metric>mean [kms] of people with [t-type = 1]</metric>
+    <metric>mean [kms] of people with [t-type = 2]</metric>
+    <metric>mean [kms] of people with [t-type = 3]</metric>
+    <metric>mean [kms] of people</metric>
+    <metric>mean [acc-mot-count] of people</metric>
+    <metric>mean [acc-car-count] of people</metric>
+    <metric>mean [acc-pub-count] of people</metric>
+    <metric>mean [inc-mot-count] of people</metric>
+    <metric>mean [inc-car-count] of people</metric>
+    <metric>mean [inc-pub-count] of people</metric>
+    <metric>mean [speed] of people with [t-type = 1]</metric>
+    <metric>mean [speed] of people with [t-type = 2]</metric>
+    <metric>mean [speed] of people with [t-type = 3]</metric>
+    <metric>count people with [t-type = 1]</metric>
+    <metric>count people with [t-type = 2]</metric>
+    <metric>count people with [t-type = 3]</metric>
+    <metric>mean [wait-time-p] of people with [t-type = 3]</metric>
+    <metric>mean [speed] of people</metric>
+    <runMetricsCondition>ticks mod 30 = 1 OR ticks mod 30 = 2</runMetricsCondition>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
