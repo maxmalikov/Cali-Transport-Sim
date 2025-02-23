@@ -55,6 +55,7 @@ globals[
   p-buy3 p-ope3 p-saf3 p-sec3 p-com3 p-tim3 p-pol3 ;Weights for high-income people
   alpha beta ;Uncertainty Parameters
   commitment
+  incoming-commuters
 
 ]
 
@@ -245,6 +246,9 @@ to draw
   gis:apply-coverage my-gis-dataset "P_LOW"  plow
   gis:apply-coverage my-gis-dataset "P_MED"  pmed
   gis:apply-coverage my-gis-dataset "P_HIGH" phigh
+
+
+
 
   ;Fill the Ploygon with color
   foreach gis:feature-list-of my-gis-dataset
@@ -676,13 +680,29 @@ to distribute-people ; move genratend gents witin their community
   ]
 end
 
+to-report extract-column [column]
+  ; code used to create a list out of a column in a shapefile
+  report map [vector-feature -> gis:property-value vector-feature column ] (gis:feature-list-of my-gis-dataset )
+end
+
 to set-destination
+
   print "set destination"
-  ;community-list list []
-  ;let community-list (range 1 23)
-  ;print item 0 community-list
-  ;print item 21 community-list
-  ;print item 20 community-list
+  ; make a list of destination weights
+  set incoming-commuters extract-column "WEIGHT_INC"
+  ; create a probability threshold list based on the destination weights
+  let assignment-list [0]
+  foreach incoming-commuters
+  [
+    [x] ->
+    let last-item last assignment-list
+    set assignment-list lput (last-item + x) assignment-list
+  ]
+  ; round up the last item to 1 to ensure no missing assignments
+  set assignment-list but-last assignment-list
+  set assignment-list lput 1 assignment-list
+
+  ; reset everyone's community to 0 - this is useful for troubleshooting
   ask people [
     set destination-community 0
   ]
@@ -690,32 +710,49 @@ to set-destination
   ;dest-possi list [] 2, 3, 22 most reip to these three destination
   ; refined to use real data. Source: https://rpubs.com/juan_raigoso/1176374
 
-;CHECK THIS AND USE THE % FROM THE SHP FILE
+; WE NOW USE THE % FROM THE SHP FILE
+
+
   ask people [
   let options random-float 1
-    (ifelse
-      options <= 0.0084 [set destination-community	1 ]
-      options <= 0.1788 [set destination-community	2 ]
-      options <= 0.3091 [set destination-community	3 ]
-      options <= 0.3767 [set destination-community	4 ]
-      options <= 0.3966 [set destination-community	5 ]
-      options <= 0.4223 [set destination-community	6 ]
-      options <= 0.4493 [set destination-community	7 ]
-      options <= 0.4868 [set destination-community	8 ]
-      options <= 0.5344 [set destination-community	9 ]
-      options <= 0.5679 [set destination-community	10 ]
-      options <= 0.5897 [set destination-community	11 ]
-      options <= 0.5990 [set destination-community	12 ]
-      options <= 0.6243 [set destination-community	13 ]
-      options <= 0.6386 [set destination-community	14 ]
-      options <= 0.6603 [set destination-community	15 ]
-      options <= 0.6894 [set destination-community	16 ]
-      options <= 0.7623 [set destination-community	17 ]
-      options <= 0.7861 [set destination-community	18 ]
-      options <= 0.8963 [set destination-community	19 ]
-      options <= 0.9100 [set destination-community	20 ]
-      options <= 0.9296 [set destination-community	21 ]
-      [set destination-community	22 ])
+  let tracker 0
+  let counter 0
+    ; iterate over the probability threshold list until a value is found
+    while [ options >= tracker ]
+   [
+      ; look for the next value in the threshold list
+      set counter counter + 1
+      ; assign the threshold to the next value in the list
+      set tracker item counter assignment-list
+      ; if the value matches our random number, set the community equal to item index - commune number
+      if options < tracker [ set destination-community	counter ]
+
+   ]
+
+    ; old code
+;    (ifelse
+;      options <= 0.0084 [set destination-community	1 ]
+;      options <= 0.1788 [set destination-community	2 ]
+;      options <= 0.3091 [set destination-community	3 ]
+;      options <= 0.3767 [set destination-community	4 ]
+;      options <= 0.3966 [set destination-community	5 ]
+;      options <= 0.4223 [set destination-community	6 ]
+;      options <= 0.4493 [set destination-community	7 ]
+;      options <= 0.4868 [set destination-community	8 ]
+;      options <= 0.5344 [set destination-community	9 ]
+;      options <= 0.5679 [set destination-community	10 ]
+;      options <= 0.5897 [set destination-community	11 ]
+;      options <= 0.5990 [set destination-community	12 ]
+;      options <= 0.6243 [set destination-community	13 ]
+;      options <= 0.6386 [set destination-community	14 ]
+;      options <= 0.6603 [set destination-community	15 ]
+;      options <= 0.6894 [set destination-community	16 ]
+;      options <= 0.7623 [set destination-community	17 ]
+;      options <= 0.7861 [set destination-community	18 ]
+;      options <= 0.8963 [set destination-community	19 ]
+;      options <= 0.9100 [set destination-community	20 ]
+;      options <= 0.9296 [set destination-community	21 ]
+;      [set destination-community	22 ])
 
     let target-community destination-community
     let matching-patches patches with [CID = target-community]
