@@ -777,106 +777,123 @@ end
 to set-transportation-type
   ask people [set t-type 0]
 
-  show "setting up trasportation"
-  ; set up motor based on the real r
-  ; the rest of the people will be 40:39:21 as cars:public:cycle
-  ;male
-  ask n-of (round count people with [h-social-type = 1 and gender = 1] * 0.13) people with [h-social-type = 1 and gender = 1 and t-type = 0][
-    set t-type 1 ;car
+  show "setting up transportation"
 
+; Read probabilities from CSV file
+ ; Male (m) - Social-types 1 to 3 - Transport-modes: c=car, m=mot, p=pub
+let prob-m1c first (item 53 my-csv-dataset)  ; male-social-type-1-car
+let prob-m1m first (item 54 my-csv-dataset)  ; male-social-type-1-mot
+let prob-m1p first (item 55 my-csv-dataset)  ; male-social-type-1-pub
+
+let prob-m2c first (item 59 my-csv-dataset)  ; male-social-type-2-car
+let prob-m2m first (item 60 my-csv-dataset)  ; male-social-type-2-mot
+let prob-m2p first (item 61 my-csv-dataset)  ; male-social-type-2-pub
+
+let prob-m3c first (item 65 my-csv-dataset)  ; male-social-type-3-car
+let prob-m3m first (item 66 my-csv-dataset)  ; male-social-type-3-mot
+let prob-m3p first (item 67 my-csv-dataset)  ; male-social-type-3-pub
+
+ ; Female (m) - Social-types 1 to 3 - Transport-modes: c=car, m=mot, p=pub
+let prob-f1c first (item 56 my-csv-dataset)  ; female-social-type-1-car
+let prob-f1m first (item 57 my-csv-dataset)  ; female-social-type-1-mot
+let prob-f1p first (item 58 my-csv-dataset)  ; female-social-type-1-pub
+
+let prob-f2c first (item 62 my-csv-dataset)  ; female-social-type-2-car
+let prob-f2m first (item 63 my-csv-dataset)  ; female-social-type-2-mot
+let prob-f2p first (item 64 my-csv-dataset)  ; female-social-type-2-pub
+
+let prob-f3c first (item 68 my-csv-dataset)  ; female-social-type-3-car
+let prob-f3m first (item 69 my-csv-dataset)  ; female-social-type-3-mot
+let prob-f3p first (item 70 my-csv-dataset)  ; female-social-type-3-pub
+
+; count people with the same gender in the same social class
+ let   males-social-1 (count people with [h-social-type = 1 and gender = 1])
+ let   males-social-2 (count people with [h-social-type = 2 and gender = 1])
+ let   males-social-3 (count people with [h-social-type = 3 and gender = 1])
+ let females-social-1 (count people with [h-social-type = 1 and gender = 2])
+ let females-social-2 (count people with [h-social-type = 2 and gender = 2])
+ let females-social-3 (count people with [h-social-type = 3 and gender = 2])
+
+; Assignation of transport modes
+; Male in social class 1
+ask n-of (round males-social-1 * prob-m1c) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+  set t-type 1  ; car
+]
+
+ask n-of (round males-social-1 * prob-m1m) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+  set t-type 2  ; moto
+]
+
+ask n-of (round males-social-1 * prob-m1p) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+  set t-type 3  ; pub
+]
+
+; Males in social class 2
+ask n-of (round males-social-2 * prob-m2c) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round males-social-2 * prob-m2m) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round males-social-2 * prob-m2p) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
+
+; Males in social class 3
+ask n-of (round males-social-3 * prob-m3c) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round males-social-3 * prob-m3m) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round males-social-3 * prob-m3p) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+  set t-type 3  ; pub
+]
+
+; Females in social class 1
+ask n-of (round females-social-1 * prob-f1c) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round females-social-1 * prob-f1m) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round females-social-1 * prob-f1p) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
+
+; Females in social class 2
+ask n-of (round females-social-2 * prob-f2c) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round females-social-2 * prob-f2m) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round females-social-2 * prob-f2p) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
+
+; Females in social class 3
+ask n-of (round females-social-3 * prob-f3c) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round females-social-3 * prob-f3m) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round females-social-3 * prob-f3p) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
+
+
+; Assignation for remanining people with t-type 0
+
+   ask people with [t-type = 0] [
+
+   let mode-prob random-float 1
+    set t-type
+    ifelse-value mode-prob <= 0.4 [1][
+      ifelse-value mode-prob <= 0.65 [2][3]
+    ]
   ]
-
-  ask n-of (round count people with [h-social-type = 1 and gender = 1] * 0.40) people with [h-social-type = 1 and gender = 1 and t-type = 0][
-    set t-type 2 ;moto
-
-  ]
-
-  ask n-of (round count people with [h-social-type = 1 and gender = 1] * 0.47) people with [h-social-type = 1 and gender = 1 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  ask n-of (round count people with [h-social-type = 2 and gender = 1] * 0.47) people with [h-social-type = 2 and gender = 1 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 1] * 0.25) people with [h-social-type = 2 and gender = 1 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 1] * 0.28) people with [h-social-type = 2 and gender = 1 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 1] * 0.83) people with [h-social-type = 3 and gender = 1 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 1] * 0.07) people with [h-social-type = 3 and gender = 1 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 1] * 0.10) people with [h-social-type = 3 and gender = 1 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  ;female
-   ask n-of (round count people with [h-social-type = 1 and gender = 2] * 0.12) people with [h-social-type = 1 and gender = 2 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 1 and gender = 2] * 0.29) people with [h-social-type = 1 and gender = 2 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 1 and gender = 2] * 0.59) people with [h-social-type = 1 and gender = 2 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  ask n-of (round count people with [h-social-type = 2 and gender = 2] * 0.51) people with [h-social-type = 2 and gender = 2 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 2] * 0.18) people with [h-social-type = 2 and gender = 2 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 2] * 0.31) people with [h-social-type = 2 and gender = 2 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  ask n-of (round count people with [h-social-type = 3 and gender = 2] * 0.90) people with [h-social-type = 3 and gender = 2 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 2] * 0.03) people with [h-social-type = 3 and gender = 2 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 2] * 0.07) people with [h-social-type = 3 and gender = 2 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  let mode-prob random-float 1
-
-  ask people with [t-type = 0]
-[
-
-  ifelse mode-prob <= 0.4  [set t-type 1]
-          [ifelse mode-prob <= 0.25 [set t-type 2]
-              [set t-type 3]]
-
-  ]
-
 
   ask people
   [set-transportation-info-based-on-type]
@@ -2386,7 +2403,7 @@ INPUTBOX
 94
 318
 scale-population
-2.0
+20.0
 1
 0
 Number

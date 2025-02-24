@@ -55,6 +55,7 @@ globals[
   p-buy3 p-ope3 p-saf3 p-sec3 p-com3 p-tim3 p-pol3 ;Weights for high-income people
   alpha beta ;Uncertainty Parameters
   commitment
+  incoming-commuters
 
 ]
 
@@ -207,14 +208,15 @@ to setup
   set-speed
 
   ; we can change the network generation method here
-  create-social-network-fast8
+  create-social-network-fast
+  ;create-preferential-network
   ;nw:save-matrix "matrix-0-sn2.csv"
   ;csv:to-file "results-0-sn8.csv" [ (list who h-social-type link-neighbors [h-social-type] of link-neighbors) ] of turtles
   ; ------ exporting data for histograms -----------------
-;  let header ["id" "est" "number of links"]
-;  let export-data [ (list who h-social-type count link-neighbors) ] of turtles
-;  set export-data fput header export-data
-;  csv:to-file "results-0-sn8_2.csv" export-data
+  let header ["id" "est" "number of links"]
+  let export-data [ (list who h-social-type count link-neighbors) ] of turtles
+  set export-data fput header export-data
+  csv:to-file "results-0-pa2.csv" export-data
   ; ---------------------------------------------------
   show "Initialization Done! Time it took:"
   show timer
@@ -244,6 +246,9 @@ to draw
   gis:apply-coverage my-gis-dataset "P_LOW"  plow
   gis:apply-coverage my-gis-dataset "P_MED"  pmed
   gis:apply-coverage my-gis-dataset "P_HIGH" phigh
+
+
+
 
   ;Fill the Ploygon with color
   foreach gis:feature-list-of my-gis-dataset
@@ -675,13 +680,29 @@ to distribute-people ; move genratend gents witin their community
   ]
 end
 
+to-report extract-column [column]
+  ; code used to create a list out of a column in a shapefile
+  report map [vector-feature -> gis:property-value vector-feature column ] (gis:feature-list-of my-gis-dataset )
+end
+
 to set-destination
+
   print "set destination"
-  ;community-list list []
-  ;let community-list (range 1 23)
-  ;print item 0 community-list
-  ;print item 21 community-list
-  ;print item 20 community-list
+  ; make a list of destination weights
+  set incoming-commuters extract-column "WEIGHT_INC"
+  ; create a probability threshold list based on the destination weights
+  let assignment-list [0]
+  foreach incoming-commuters
+  [
+    [x] ->
+    let last-item last assignment-list
+    set assignment-list lput (last-item + x) assignment-list
+  ]
+  ; round up the last item to 1 to ensure no missing assignments
+  set assignment-list but-last assignment-list
+  set assignment-list lput 1 assignment-list
+
+  ; reset everyone's community to 0 - this is useful for troubleshooting
   ask people [
     set destination-community 0
   ]
@@ -689,32 +710,49 @@ to set-destination
   ;dest-possi list [] 2, 3, 22 most reip to these three destination
   ; refined to use real data. Source: https://rpubs.com/juan_raigoso/1176374
 
-;CHECK THIS AND USE THE % FROM THE SHP FILE
+; WE NOW USE THE % FROM THE SHP FILE
+
+
   ask people [
   let options random-float 1
-    (ifelse
-      options <= 0.0084 [set destination-community	1 ]
-      options <= 0.1788 [set destination-community	2 ]
-      options <= 0.3091 [set destination-community	3 ]
-      options <= 0.3767 [set destination-community	4 ]
-      options <= 0.3966 [set destination-community	5 ]
-      options <= 0.4223 [set destination-community	6 ]
-      options <= 0.4493 [set destination-community	7 ]
-      options <= 0.4868 [set destination-community	8 ]
-      options <= 0.5344 [set destination-community	9 ]
-      options <= 0.5679 [set destination-community	10 ]
-      options <= 0.5897 [set destination-community	11 ]
-      options <= 0.5990 [set destination-community	12 ]
-      options <= 0.6243 [set destination-community	13 ]
-      options <= 0.6386 [set destination-community	14 ]
-      options <= 0.6603 [set destination-community	15 ]
-      options <= 0.6894 [set destination-community	16 ]
-      options <= 0.7623 [set destination-community	17 ]
-      options <= 0.7861 [set destination-community	18 ]
-      options <= 0.8963 [set destination-community	19 ]
-      options <= 0.9100 [set destination-community	20 ]
-      options <= 0.9296 [set destination-community	21 ]
-      [set destination-community	22 ])
+  let tracker 0
+  let counter 0
+    ; iterate over the probability threshold list until a value is found
+    while [ options >= tracker ]
+   [
+      ; look for the next value in the threshold list
+      set counter counter + 1
+      ; assign the threshold to the next value in the list
+      set tracker item counter assignment-list
+      ; if the value matches our random number, set the community equal to item index - commune number
+      if options < tracker [ set destination-community	counter ]
+
+   ]
+
+    ; old code
+;    (ifelse
+;      options <= 0.0084 [set destination-community	1 ]
+;      options <= 0.1788 [set destination-community	2 ]
+;      options <= 0.3091 [set destination-community	3 ]
+;      options <= 0.3767 [set destination-community	4 ]
+;      options <= 0.3966 [set destination-community	5 ]
+;      options <= 0.4223 [set destination-community	6 ]
+;      options <= 0.4493 [set destination-community	7 ]
+;      options <= 0.4868 [set destination-community	8 ]
+;      options <= 0.5344 [set destination-community	9 ]
+;      options <= 0.5679 [set destination-community	10 ]
+;      options <= 0.5897 [set destination-community	11 ]
+;      options <= 0.5990 [set destination-community	12 ]
+;      options <= 0.6243 [set destination-community	13 ]
+;      options <= 0.6386 [set destination-community	14 ]
+;      options <= 0.6603 [set destination-community	15 ]
+;      options <= 0.6894 [set destination-community	16 ]
+;      options <= 0.7623 [set destination-community	17 ]
+;      options <= 0.7861 [set destination-community	18 ]
+;      options <= 0.8963 [set destination-community	19 ]
+;      options <= 0.9100 [set destination-community	20 ]
+;      options <= 0.9296 [set destination-community	21 ]
+;      [set destination-community	22 ])
 
     let target-community destination-community
     let matching-patches patches with [CID = target-community]
@@ -739,103 +777,129 @@ end
 to set-transportation-type
   ask people [set t-type 0]
 
-  show "setting up trasportation"
-  ; set up motor based on the real r
-  ; the rest of the people will be 40:39:21 as cars:public:cycle
-  ;male
-  ask n-of (round count people with [h-social-type = 1 and gender = 1] * 0.13) people with [h-social-type = 1 and gender = 1 and t-type = 0][
-    set t-type 1 ;car
+  show "setting up transportation"
 
-  ]
+; Read probabilities from CSV file
+ ; Male (m) - Social-types 1 to 3 - Transport-modes: c=car, m=mot, p=pub
+let prob-m1c first (item 53 my-csv-dataset)  ; male-social-type-1-car
+let prob-m1m first (item 54 my-csv-dataset)  ; male-social-type-1-mot
+let prob-m1p first (item 55 my-csv-dataset)  ; male-social-type-1-pub
 
-  ask n-of (round count people with [h-social-type = 1 and gender = 1] * 0.40) people with [h-social-type = 1 and gender = 1 and t-type = 0][
-    set t-type 2 ;moto
+let prob-m2c first (item 59 my-csv-dataset)  ; male-social-type-2-car
+let prob-m2m first (item 60 my-csv-dataset)  ; male-social-type-2-mot
+let prob-m2p first (item 61 my-csv-dataset)  ; male-social-type-2-pub
 
-  ]
+let prob-m3c first (item 65 my-csv-dataset)  ; male-social-type-3-car
+let prob-m3m first (item 66 my-csv-dataset)  ; male-social-type-3-mot
+let prob-m3p first (item 67 my-csv-dataset)  ; male-social-type-3-pub
 
-  ask n-of (round count people with [h-social-type = 1 and gender = 1] * 0.47) people with [h-social-type = 1 and gender = 1 and t-type = 0][
-    set t-type 3 ;bus
+ ; Female (m) - Social-types 1 to 3 - Transport-modes: c=car, m=mot, p=pub
+let prob-f1c first (item 56 my-csv-dataset)  ; female-social-type-1-car
+let prob-f1m first (item 57 my-csv-dataset)  ; female-social-type-1-mot
+let prob-f1p first (item 58 my-csv-dataset)  ; female-social-type-1-pub
 
-  ]
+let prob-f2c first (item 62 my-csv-dataset)  ; female-social-type-2-car
+let prob-f2m first (item 63 my-csv-dataset)  ; female-social-type-2-mot
+let prob-f2p first (item 64 my-csv-dataset)  ; female-social-type-2-pub
 
-  ask n-of (round count people with [h-social-type = 2 and gender = 1] * 0.47) people with [h-social-type = 2 and gender = 1 and t-type = 0][
-    set t-type 1 ;cars
+let prob-f3c first (item 68 my-csv-dataset)  ; female-social-type-3-car
+let prob-f3m first (item 69 my-csv-dataset)  ; female-social-type-3-mot
+let prob-f3p first (item 70 my-csv-dataset)  ; female-social-type-3-pub
 
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 1] * 0.25) people with [h-social-type = 2 and gender = 1 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
+; count people with the same gender in the same social class
+ let   males-social-1 (count people with [h-social-type = 1 and gender = 1])
+ let   males-social-2 (count people with [h-social-type = 2 and gender = 1])
+ let   males-social-3 (count people with [h-social-type = 3 and gender = 1])
+ let females-social-1 (count people with [h-social-type = 1 and gender = 2])
+ let females-social-2 (count people with [h-social-type = 2 and gender = 2])
+ let females-social-3 (count people with [h-social-type = 3 and gender = 2])
 
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 1] * 0.28) people with [h-social-type = 2 and gender = 1 and t-type = 0][
-    set t-type 3 ;bus
+; Assignation of transport modes
+; Male in social class 1
+ask n-of (round males-social-1 * prob-m1c) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+  set t-type 1  ; car
+]
 
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 1] * 0.83) people with [h-social-type = 3 and gender = 1 and t-type = 0][
-    set t-type 1 ;cars
+ask n-of (round males-social-1 * prob-m1m) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+  set t-type 2  ; moto
+]
 
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 1] * 0.07) people with [h-social-type = 3 and gender = 1 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
+ask n-of (round males-social-1 * prob-m1p) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+  set t-type 3  ; pub
+]
 
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 1] * 0.10) people with [h-social-type = 3 and gender = 1 and t-type = 0][
-    set t-type 3 ;bus
+; Males in social class 2
+ask n-of (round males-social-2 * prob-m2c) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round males-social-2 * prob-m2m) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round males-social-2 * prob-m2p) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
 
-  ]
+; Males in social class 3
+ask n-of (round males-social-3 * prob-m3c) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round males-social-3 * prob-m3m) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round males-social-3 * prob-m3p) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+  set t-type 3  ; pub
+]
 
-  ;female
-   ask n-of (round count people with [h-social-type = 1 and gender = 2] * 0.12) people with [h-social-type = 1 and gender = 2 and t-type = 0][
-    set t-type 1 ;cars
+; Females in social class 1
+ask n-of (round females-social-1 * prob-f1c) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round females-social-1 * prob-f1m) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round females-social-1 * prob-f1p) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
 
-  ]
-  ask n-of (round count people with [h-social-type = 1 and gender = 2] * 0.29) people with [h-social-type = 1 and gender = 2 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
+; Females in social class 2
+ask n-of (round females-social-2 * prob-f2c) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round females-social-2 * prob-f2m) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round females-social-2 * prob-f2p) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
 
-  ]
-  ask n-of (round count people with [h-social-type = 1 and gender = 2] * 0.59) people with [h-social-type = 1 and gender = 2 and t-type = 0][
-    set t-type 3 ;bus
+; Females in social class 3
+ask n-of (round females-social-3 * prob-f3c) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round females-social-3 * prob-f3m) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round females-social-3 * prob-f3p) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
 
-  ]
 
-  ask n-of (round count people with [h-social-type = 2 and gender = 2] * 0.51) people with [h-social-type = 2 and gender = 2 and t-type = 0][
-    set t-type 1 ;cars
 
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 2] * 0.18) people with [h-social-type = 2 and gender = 2 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 2] * 0.31) people with [h-social-type = 2 and gender = 2 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  ask n-of (round count people with [h-social-type = 3 and gender = 2] * 0.90) people with [h-social-type = 3 and gender = 2 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 2] * 0.03) people with [h-social-type = 3 and gender = 2 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 2] * 0.07) people with [h-social-type = 3 and gender = 2 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
+; Assignation for remanining people with t-type 0
 
   let mode-prob random-float 1
 
   ask people with [t-type = 0]
 [
 
-  ifelse mode-prob <= 0.4  [set t-type 1]
-          [ifelse mode-prob <= 0.25 [set t-type 2]
-              [set t-type 3]]
+  ;ifelse mode-prob <= 0.4  [set t-type 1]
+   ;       [ifelse mode-prob <= 0.65 [set t-type 2]
+    ;          [set t-type 3]]
+
+    set t-type
+    ifelse-value mode-prob <= 0.4 [1][
+      ifelse-value mode-prob <= 0.65 [2][3]
+    ]
 
   ]
 
@@ -1179,13 +1243,13 @@ end
 to go
 
   ;; VIDEO RECORDING SETUP
-  if vid:recorder-status = "inactive" [
-    vid:start-recorder
-  ]
+  ;if vid:recorder-status = "inactive" [
+  ;  vid:start-recorder
+  ;]
   ;; CAPTURE THE CURRENT FRAME
   ;; Recording twice to "slow down" the video
-  vid:record-view
-  vid:record-view
+  ;vid:record-view
+  ;vid:record-view
 
   ;2 set up the transportation type
   ;stay the same
@@ -1223,8 +1287,8 @@ to go
     ;; SAVE FINAL VIDEO
     if ticks = (Time-steps * 30 + 2)
     [
-      vid:save-recording "cali_sim.mp4"
-      print vid:recorder-status
+      ;vid:save-recording "cali_sim.mp4"
+      ;print vid:recorder-status
       stop
     ]
 
@@ -1918,501 +1982,8 @@ to update-age-people
  ask people [set age age + 1]
 end
 
-;; This is the network generating algorithm we will be using for now.
-to create-social-network-fast1
-
-  ; create variables
-  let my-node one-of people
-  let my-status [h-social-type] of my-node
-  let my-commune [hPoly] of my-node
-  let my-destination [destination-community] of my-node
-  let my-communes up-to-n-of 2 people
-  let my-statuses up-to-n-of 2 people
-  let my-other-people up-to-n-of 2 people
-  let my-workers up-to-n-of 2 people
-  let my-connections up-to-n-of 2 people
-  ; seeding the links for preferential attachment
-  ask people with [h-social-type = 1]
-  [
-    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 2]
-  [
-    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 3]
-  [
-    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
-  ]
-
-  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
-    set my-node one-of [both-ends] of one-of links
-    set my-status [h-social-type] of my-node
-    set my-commune [hPoly] of my-node
-    set my-destination [destination-community] of my-node
-    set my-communes up-to-n-of (random-exponential 15) people with [hPoly = my-commune]
-    set my-statuses up-to-n-of (random-exponential 20) people with [h-social-type = my-status]
-    set my-other-people up-to-n-of (random-exponential 5) people
-    ifelse [big-destination] of my-node
-      [
-      set  my-workers up-to-n-of (random-exponential 30) people with [destination-community = my-destination and big-destination = true]
-      ]
-    [
-      set my-workers no-turtles
-    ]
-
-    ask my-node [
-      set my-connections other (turtle-set my-communes my-statuses my-other-people my-workers)
-      create-links-with my-connections [set hidden? true]
-    ]
-  ]
-
-end
-
-;; This is the network generating algorithm we will be using for now.
-to create-social-network-fast2
-
-  ; create variables
-  let my-node one-of people
-  let my-status [h-social-type] of my-node
-  let my-commune [hPoly] of my-node
-  let my-destination [destination-community] of my-node
-  ; seeding the links for preferential attachment
-  ask people with [h-social-type = 1]
-  [
-    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 2]
-  [
-    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 3]
-  [
-    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
-  ]
-
-  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
-    set my-node one-of [both-ends] of one-of links
-    set my-status [h-social-type] of my-node
-    set my-commune [hPoly] of my-node
-    set my-destination [destination-community] of my-node
-    ask my-node [
-      ;; These numbers can be adjusted
-      create-links-with up-to-n-of (random-exponential 15) other people with [hPoly = my-commune] [set hidden? true set relationship-type "family"]
-      create-links-with up-to-n-of (random-exponential 20) other people with [h-social-type = my-status] [set hidden? true set relationship-type "other"]
-      create-links-with up-to-n-of (random-exponential 5) other people [set hidden? true set relationship-type "other"]
-      ;; add 50% chance to generate these
-      ;; Max note:
-      ;; Need to increase local clustering average to 0.4 - interconnect x-y immediate neighbors?
-      if big-destination
-      [
-        create-links-with up-to-n-of (random-exponential 30) other people with [destination-community = my-destination and big-destination = true] [set hidden? true set relationship-type "other"]
-      ]
-    ]
-  ]
-
-end
-
-;; This is the network generating algorithm we will be using for now.
-to create-social-network-fast3
-
-  ; create variables
-  let my-node one-of people
-  let other-node one-of people
-  let my-link one-of links
-  let my-nodes up-to-n-of 5 people ; only for initialization; otherwise it will be link ends
-  let my-status [h-social-type] of my-node
-  let my-commune [hPoly] of my-node
-  let my-destination [destination-community] of my-node
-  let my-big-destination false
-  let our-poly up-to-n-of 5 people
-  let our-type up-to-n-of 5 people
-  let our-others up-to-n-of 5 people
-  let our-work up-to-n-of 5 people
-  let our-connections (turtle-set our-type our-others our-work) ; just initializing the variable
-
-  ; seeding the links for preferential attachment
-  ask people with [h-social-type = 1]
-  [
-    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true set relationship-type "family"]
-  ]
-  ask people with [h-social-type = 2]
-  [
-    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true  set relationship-type "family"]
-  ]
-  ask people with [h-social-type = 3]
-  [
-    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true  set relationship-type "family"]
-  ]
-
-  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
-    set my-link one-of links with [relationship-type = "family"]
-    set my-nodes [both-ends] of my-link
-    set my-node one-of my-nodes
-    set other-node my-nodes who-are-not my-node
-    set my-status [h-social-type] of my-node
-    set my-commune [hPoly] of my-node
-    set my-destination [destination-community] of my-node
-    set my-big-destination [big-destination] of my-node
-    set our-poly up-to-n-of (random-exponential 15) people with [hPoly = my-commune]
-    set our-type up-to-n-of (random-exponential 5) people with [h-social-type = my-status]
-    set our-others up-to-n-of (random-exponential 5) people
-    ifelse my-big-destination
-    [
-        set our-work up-to-n-of (random-exponential 15) other people with [destination-community = my-destination and big-destination = true]
-    ]
-    [
-      set our-work no-turtles
-    ]
-    ; combine all nodes into one agentset; except our commune links, which need to be flagged differently
-    set our-connections (turtle-set our-type our-others our-work)
-
-    ask my-nodes [
-      ;; These numbers can be adjusted
-      create-links-with other our-poly [set hidden? true set relationship-type "family"]
-      create-links-with other our-connections [set hidden? true set relationship-type "other"]
-    ]
-    ; close the triangles
-;    ask people
-;    [
-;      let friends link-neighbors
-;      ask n-of (count friends / 2) link-neighbors
-;      [
-;        create-links-with other friends [set hidden? true]
-;      ]
-;
-;    ]
-
-    ; Create synthetic families and friends. Ask 50% of people to form clusters with 1-4 other people in the same patch (or nearby patch if needed).
-;    ask n-of ( 8500 / scale-population ) people ; we are only asking 50%
-;    [
-;      let family people-on (patch-set patch-here)
-;      set family family with [family? = true]
-;      let family-size (2 + random 15)
-;      if ( count family ) < family-size
-;      [
-;        set family people-on (patch-set patch-here neighbors)
-;      ]
-;      let final-family up-to-n-of family-size family
-;      ask final-family
-;      [
-;        create-links-with other final-family  [set hidden? true]
-;        set family? true
-;      ]
-;    ]
-
-  ]
-
-end
-
-
-to create-social-network-fast4
-
-  ; create variables
-  let my-node one-of people
-  let other-node one-of people
-  let my-link one-of links
-  let my-family n-of 2 people ; only for initialization;
-  let my-status [h-social-type] of my-node
-  let my-commune [hPoly] of my-node
-  let my-destination [destination-community] of my-node
-  ; seeding the links for preferential attachment
-  ask people with [h-social-type = 1]
-  [
-    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 2]
-  [
-    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 3]
-  [
-    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
-  ]
-
-  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
-    set my-node one-of [both-ends] of one-of links
-    set my-status [h-social-type] of my-node
-    set my-commune [hPoly] of my-node
-    set my-destination [destination-community] of my-node
-    ask my-node [
-
-
-      set my-family other people-on (patch-set patch-here)
-      ;set my-family my-family with [family? = true]
-      let family-size random-exponential 5
-      if ( count my-family ) < family-size
-      [
-        set my-family other people-on (patch-set patch-here neighbors)
-      ]
-
-        create-links-with up-to-n-of family-size my-family  [set hidden? true set relationship-type "family"]
-      ;  set family? true
-
-
-      ;set my-family other people-on (patch-set patch-here neighbors)
-      ;; These numbers can be adjusted
-      ;create-links-with up-to-n-of (random-exponential 7) other people with [hPoly = my-commune] [set hidden? true set relationship-type "family"]
-      ;create-links-with up-to-n-of (random-exponential 7) my-family [set hidden? true set relationship-type "family"]
-      create-links-with up-to-n-of (random-exponential 5) other people with [h-social-type = my-status] [set hidden? true set relationship-type "other"]
-      ;create-links-with up-to-n-of (random-exponential 3) other people [set hidden? true set relationship-type "other"]
-      ;; add 50% chance to generate these
-      ;; Max note:
-      ;; Need to increase local clustering average to 0.4 - interconnect x-y immediate neighbors?
-      if big-destination
-      [
-        create-links-with up-to-n-of (random-exponential 15) other people with [destination-community = my-destination and big-destination = true] [set hidden? true set relationship-type "other"]
-      ]
-    ]
-  ]
-  let family-links n-of (count people / 3 ) links with [ relationship-type = "family"]
-  ask family-links
-  [
-    set my-link self
-    set my-node [end1] of my-link
-    set other-node [end2] of my-link
-    ask other-node
-    [
-      ;let to-link
-      create-links-with other [ link-neighbors ] of my-node [set hidden? true]
-      ;create-links-with other [ link-neighbors ] of other-node
-
-    ]
-    ask my-node
-    [
-      ;let to-link
-      create-links-with other [ link-neighbors ] of other-node [set hidden? true]
-    ]
-  ]
-
-end
-
-to create-social-network-fast5
-
-  ; create variables
-  let my-node one-of people
-  let other-node one-of people
-  let my-link one-of links
-  let my-nodes up-to-n-of 5 people ; only for initialization; otherwise it will be link ends
-  let my-status [h-social-type] of my-node
-  let my-commune [hPoly] of my-node
-  let my-destination [destination-community] of my-node
-  ; seeding the links for preferential attachment
-  ask people with [h-social-type = 1]
-  [
-    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 2]
-  [
-    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 3]
-  [
-    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
-  ]
-
-  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
-    set my-node one-of [both-ends] of one-of links
-    set my-status [h-social-type] of my-node
-    set my-commune [hPoly] of my-node
-    set my-destination [destination-community] of my-node
-    ask my-node [
-      ;; These numbers can be adjusted
-      create-links-with up-to-n-of (random-exponential 7) other people with [hPoly = my-commune] [set hidden? true set relationship-type "family"]
-      create-links-with up-to-n-of (random-exponential 5) other people with [h-social-type = my-status] [set hidden? true set relationship-type "other"]
-      ;create-links-with up-to-n-of (random-exponential 3) other people [set hidden? true set relationship-type "other"]
-      ;; add 50% chance to generate these
-      ;; Max note:
-      ;; Need to increase local clustering average to 0.4 - interconnect x-y immediate neighbors?
-      if big-destination
-      [
-        create-links-with up-to-n-of (random-exponential 15) other people with [destination-community = my-destination and big-destination = true] [set hidden? true set relationship-type "other"]
-      ]
-    ]
-  ]
-  let family-links n-of (count people / 10 ) links with [ relationship-type = "family"]
-  ask family-links
-  [
-    set my-link self
-    set my-node [end1] of my-link
-    set other-node [end2] of my-link
-    ask other-node
-    [
-      ;let to-link
-      create-links-with other [ link-neighbors ] of my-node [set hidden? true]
-      ;create-links-with other [ link-neighbors ] of other-node
-
-    ]
-    ask my-node
-    [
-      ;let to-link
-      create-links-with other [ link-neighbors ] of other-node [set hidden? true]
-    ]
-  ]
-
-end
-
-;; This is the network generating algorithm we will be using for now.
-to create-social-network-fast6
-
-  ; create variables
-  let my-node one-of people
-  let my-status [h-social-type] of my-node
-  let my-commune [hPoly] of my-node
-  let my-destination [destination-community] of my-node
-  let my-communes up-to-n-of 2 people
-  let my-statuses up-to-n-of 2 people
-  let my-other-people up-to-n-of 2 people
-  let my-workers up-to-n-of 2 people
-  let my-connections up-to-n-of 2 people
-  ; seeding the links for preferential attachment
-  ask people with [h-social-type = 1]
-  [
-    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 2]
-  [
-    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 3]
-  [
-    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
-  ]
-
-  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
-    set my-node one-of [both-ends] of one-of links
-    set my-status [h-social-type] of my-node
-    set my-commune [hPoly] of my-node
-    set my-destination [destination-community] of my-node
-    set my-communes up-to-n-of (random-exponential 7) people with [hPoly = my-commune]
-    set my-statuses up-to-n-of (random-exponential 5) people with [h-social-type = my-status]
-    ;set my-other-people up-to-n-of (random-exponential 5) people
-    ifelse ([big-destination] of my-node = true)
-      [
-      set  my-workers up-to-n-of (random-exponential 15) people with [destination-community = my-destination and big-destination = true]
-      ]
-    [
-      set my-workers no-turtles
-    ]
-
-    ask my-node [
-      set my-connections other (turtle-set my-communes my-statuses my-workers)
-      create-links-with my-connections [set hidden? true]
-    ]
-  ]
-
-       ;close the triangles
-  ask n-of (count people / 20) people
-  [
-    let friends link-neighbors
-    ask n-of (count friends / 5 ) friends
-    [
-      create-links-with other friends [set hidden? true]
-    ]
-
-  ]
-
-end
-
-
-;; This is the network generating algorithm we will be using for now.
-to create-social-network-fast7
-  let connections n-of 5 people
-
-  ; for each comunity, connect families
-  let families people
-
-  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
-  [
-    n -> set families people with [hPoly = n]
-
-    while [count families > 0]
-    [
-      ;show count connections
-      ; set connections up-to-n-of (random-pareto 1 1.2) families
-      set connections up-to-n-of ((random-exponential 30) / 3) families
-      ask connections [
-        create-links-with other connections [set hidden? true]
-      ]
-      set families families who-are-not connections
-    ]
-  ]
-
-  ; for each comunity, connect neighbors
-  let neighborinos people
-
-  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
-  [
-    n -> set neighborinos people with [hPoly = n]
-
-    while [count neighborinos > 0]
-    [
-      ;show count connections
-      ; set connections up-to-n-of (random-pareto 1 1.2) families
-      set connections up-to-n-of (random-exponential 10) neighborinos
-      ask connections [
-        create-links-with other connections [set hidden? true]
-      ]
-      set neighborinos neighborinos who-are-not connections
-    ]
-  ]
-
-  ; for each social class, connect friends
-  let friends people
-
-  foreach [1 2 3]
-  [
-    n -> set friends people with [h-social-type = n]
-
-    while [count friends > 0]
-    [
-      ;show count connections
-      ; set connections up-to-n-of (random-pareto 1 1.2) families
-      set connections up-to-n-of ((random-exponential 20) / 2) friends
-      ask connections [
-        create-links-with other connections [set hidden? true]
-      ]
-      set friends friends who-are-not connections
-    ]
-  ]
-
-   ;   add some social media links
-  let my-node one-of people
-  let all-my-links links
-
-  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
-    set my-node one-of [both-ends] of one-of all-my-links
-    ask my-node
-    [
-     create-links-with up-to-n-of ((random-exponential 20) / 5) other people [set hidden? true]
-    ]
-  ]
-
-  ; connect workplaces. no schools since students do not generally drive
-  let workplaces people with [big-destination = true]
-
-  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
-  [
-    n -> set workplaces people with [destination-community = n and big-destination = true]
-
-    while [count workplaces > 0]
-    [
-      ;show count connections
-      ; set connections up-to-n-of (random-pareto 1 1.2) families
-      set connections up-to-n-of ((random-exponential 150) / 2) workplaces
-      ask connections [
-        create-links-with other connections [set hidden? true]
-      ]
-      set workplaces workplaces who-are-not connections
-    ]
-  ]
-
-
-
-end
-
 ;---------------------------------------------------------
-to create-social-network-fast8 ; using pareto distribution
+to create-social-network-fast ; using pareto distribution
   let connections n-of 5 people
 
   ; for each comunity, connect families
@@ -2426,7 +1997,7 @@ to create-social-network-fast8 ; using pareto distribution
     [
       ;show count connections
       ; set connections up-to-n-of (random-pareto 1 1.2) families
-      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 4)) families
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 5)) families
       ask connections [
         create-links-with other connections [set hidden? true]
       ]
@@ -2445,7 +2016,7 @@ to create-social-network-fast8 ; using pareto distribution
     [
       ;show count connections
       ; set connections up-to-n-of (random-pareto 1 1.2) families
-      set connections up-to-n-of ((random-pareto 2 2) * (1 + random-float 7)) neighborinos
+      set connections up-to-n-of ((random-pareto 2 2) * (1 + random-float 6)) neighborinos
       ask connections [
         create-links-with other connections [set hidden? true]
       ]
@@ -2491,19 +2062,27 @@ to create-social-network-fast8 ; using pareto distribution
     ]
   ]
 
-;   add some social media links
+;   add some household links
 
   let all-people people
-      while [count all-people > 0]
-    [
-      ;show count connections
-      ; set connections up-to-n-of (random-pareto 1 1.2) families
-      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 4)) all-people
+
+  while [count all-people > 0]
+  [
+    ;show count connections
+    ; set connections up-to-n-of (random-pareto 1 1.2) families
+    let head-of-household one-of all-people
+    ask head-of-household [
+      let all-people-around people-on (patch-set patch-here neighbors)
+      let existing-households all-people-around who-are-not all-people
+      set all-people-around all-people-around who-are-not existing-households
+      set connections up-to-n-of ((random-pareto 2 2) * (1 + random-float 4)) all-people-around
       ask connections [
         create-links-with other connections [set hidden? true]
       ]
+
       set all-people all-people who-are-not connections
     ]
+  ]
 
 ;  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
 ;    set my-node one-of [both-ends] of one-of all-my-links
@@ -2524,7 +2103,7 @@ to create-social-network-fast8 ; using pareto distribution
     [
       ;show count connections
       ; set connections up-to-n-of (random-pareto 1 1.2) families
-      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 65)) workplaces
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 75)) workplaces
       ask connections [
         create-links-with other connections [set hidden? true]
       ]
@@ -2537,36 +2116,28 @@ to create-social-network-fast8 ; using pareto distribution
 end
 
 
-to make-link
-
-          ;let number-of-connections 12 ; sets how many connections we want
-      ; set new node to a random end of a link; key to preferential attachment.
-      ; create a link with the curated node
-      let new-nodes other [both-ends] of one-of links
-      create-link-with one-of new-nodes [set hidden? true]
-
-end
-
-to-report find-partner [number old-node]
-  let link-ends []
-  repeat number
+to create-preferential-network2
+  ; seeding the links for preferential attachment
+  ask n-of 50 people
   [
-    let new-node [one-of both-ends] of one-of links
-    ; try to find a node of same class one more time
-    if [h-social-type] of new-node = [h-social-type] of old-node
-    [
-      set new-node [one-of both-ends] of one-of links
-    ]
-    ; make sure we are not linking to self or duplicates
-    while [new-node = old-node or member? new-node link-ends]
-    [
-      set new-node [one-of both-ends] of one-of links
-    ]
-    set link-ends lput new-node link-ends
+    create-link-with one-of other people [set hidden? true]
   ]
-  let agent-ends turtle-set link-ends
-  report agent-ends
+
+  ;let my-node one-of people
+  ask people
+  [
+    ; the multiplier will create an average of that many links per agent
+    let future-links up-to-n-of 48 links ; this determines how many nodes we will connect to
+    let future-nodes one-of [both-ends] of one-of future-links
+    ask future-links [
+      ;set my-node one-of [both-ends] of self
+      set future-nodes (turtle-set future-nodes one-of [both-ends] of self)
+    ]
+    create-links-with other future-nodes [set hidden? true]
+  ]
+
 end
+
 
 to-report global-clustering-coefficient
   let closed-triplets sum [ nw:clustering-coefficient * count my-links * (count my-links - 1) ] of turtles
@@ -2580,10 +2151,9 @@ to-report random-pareto [xmin a]
   ; report (xmin * ((u) ^ (-1 / a))) ;; alpha of 51/50 (1.02) will give us a mean of 51
   report sqrt (xmin * ((u) ^ (-1 / a))) ;; alpha of 51/50 (1.02) will give us a mean of 51
 
-
 end
 
-to-report clus
+to-report local-clustering
   report mean [ nw:clustering-coefficient ] of turtles
 end
 @#$#@#$#@
@@ -2842,7 +2412,7 @@ INPUTBOX
 94
 318
 scale-population
-1.0
+20.0
 1
 0
 Number
@@ -3006,7 +2576,7 @@ INPUTBOX
 178
 169
 Time-steps
-10.0
+50.0
 1
 0
 Number
@@ -3753,6 +3323,86 @@ PENS
 "mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"deliberation\"])]"
 "pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"deliberation\"])]"
 
+TEXTBOX
+203
+39
+352
+68
+  █
+11
+106.0
+0
+
+TEXTBOX
+203
+67
+352
+94
+  █
+11
+107.0
+0
+
+TEXTBOX
+203
+16
+351
+39
+    Legend:
+11
+0.0
+0
+
+TEXTBOX
+203
+93
+352
+119
+  █
+11
+108.0
+0
+
+TEXTBOX
+222
+39
+372
+57
+- High-income commune
+11
+0.0
+1
+
+TEXTBOX
+221
+67
+371
+85
+- Medium-income commune
+11
+0.0
+1
+
+TEXTBOX
+222
+93
+372
+111
+- Low-income commune
+11
+0.0
+1
+
+TEXTBOX
+350
+16
+365
+119
+NIL
+11
+0.0
+0
+
 @#$#@#$#@
 ## WHAT IS IT?
 
@@ -4183,6 +3833,22 @@ NetLogo 6.4.0
     <metric>mean [wait-time-p] of people with [t-type = 3]</metric>
     <metric>mean [speed] of people</metric>
     <runMetricsCondition>ticks mod 30 = 1 OR ticks mod 30 = 2</runMetricsCondition>
+  </experiment>
+  <experiment name="proofs-threshholds sn" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>(count people with [t-type = 1]) / (count people)</metric>
+    <metric>(count people with [t-type = 2]) / (count people)</metric>
+    <metric>(count people with [t-type = 3]) / (count people)</metric>
+    <runMetricsCondition>ticks mod 30 = 2</runMetricsCondition>
+  </experiment>
+  <experiment name="proofs-threshholds pa" repetitions="30" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>(count people with [t-type = 1]) / (count people)</metric>
+    <metric>(count people with [t-type = 2]) / (count people)</metric>
+    <metric>(count people with [t-type = 3]) / (count people)</metric>
+    <runMetricsCondition>ticks mod 30 = 2</runMetricsCondition>
   </experiment>
 </experiments>
 @#$#@#$#@
