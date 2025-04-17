@@ -1660,7 +1660,9 @@ to update-scores-tech-attributes
    set cost-op-mot ((costv-op-mot + costf-op-mot) / sumcostop)
    set cost-op-car ((costv-op-car + costf-op-car) / sumcostop)
   ; set cost-op-pub ((costv-op-pub + costf-op-pub) / sumcostop)
-   set cost-op-pub costfix-op-pub
+  ;set cost-op-pub costfix-op-pub
+   set cost-op-pub ((costv-op-pub + costfix-op-pub) / sumcostop)
+
 
  ; UPDATE SAFETY SCORES according to total number of accidents by mode
 
@@ -2403,7 +2405,7 @@ INPUTBOX
 94
 318
 scale-population
-20.0
+30.0
 1
 0
 Number
@@ -2447,7 +2449,7 @@ Uncert-p
 Uncert-p
 0
 1
-0.3
+0.5
 0.01
 1
 NIL
@@ -2492,7 +2494,7 @@ Satisf-p
 Satisf-p
 0
 1
-0.57
+0.35
 0.01
 1
 NIL
@@ -2567,7 +2569,7 @@ INPUTBOX
 178
 169
 Time-steps
-50.0
+10.0
 1
 0
 Number
@@ -3052,6 +3054,7 @@ PENS
 "mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [satisfaction-mot] of people with [t-type = 1] )]"
 "car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (sum [satisfaction-car] of people with [t-type = 2] / count people with [t-type = 2])]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (sum [satisfaction-pub] of people with [t-type = 3] / count people with [t-type = 3])]"
+"thr" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot mean [ satisfaction-threshold ] of people with [t-type = 3]]"
 
 PLOT
 1871
@@ -3072,6 +3075,7 @@ PENS
 "car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 1] )]"
 "mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 2] )]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 3] )]"
+"thr" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot mean [ uncertainty-threshold ] of people  with [t-type = 3]]"
 
 PLOT
 1599
