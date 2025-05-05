@@ -1649,19 +1649,27 @@ to update-scores-tech-attributes
     ;show max-costv
     ;show min-costv
 
-   set costv-op-mot (1 - ((costv-mot - min-costv) / (max-costv - min-costv))) ; standarization of cost to obtain a score
-   set costv-op-car (1 - ((costv-car - min-costv) / (max-costv - min-costv))) ; standarization of cost to obtain a score
-
    let costv-op-pub 1 ; since public transit does not have variable costs, it has the highiest score
    let costfix-op-pub random-normal costf-op-pub deviation
 
+;   set costv-op-mot (1 - ((costv-mot - min-costv) / (max-costv - min-costv))) ; standardization of cost to obtain a score
+;   set costv-op-car (1 - ((costv-car - min-costv) / (max-costv - min-costv))) ; standardization of cost to obtain a score
+
+   set costv-op-mot (1 - (costv-mot  / (costv-mot + costv-car + costv-op-pub))) ; standardization of cost to obtain a score
+   set costv-op-car (1 - (costv-car /  (costv-mot + costv-car + costv-op-pub))) ; standardization of cost to obtain a score
+
+;   set costv-op-mot (1 - ((costv-mot - 0) / (max-costv - 0))) ; standardization of cost to obtain a score
+;   set costv-op-car (1 - ((costv-car - 0) / (max-costv - 0))) ; standardization of cost to obtain a score
+
+
+
    let sumcostop (costv-op-mot + costf-op-mot + costv-op-car + costf-op-car + costv-op-pub + costfix-op-pub) ;fixed cost scores come from the initial data
 
-   set cost-op-mot ((costv-op-mot + costf-op-mot) / sumcostop)
-   set cost-op-car ((costv-op-car + costf-op-car) / sumcostop)
+   set cost-op-mot ((costv-op-mot + costf-op-mot) / 2)
+   set cost-op-car ((costv-op-car + costf-op-car) / 2)
   ; set cost-op-pub ((costv-op-pub + costf-op-pub) / sumcostop)
   ;set cost-op-pub costfix-op-pub
-   set cost-op-pub ((costv-op-pub + costfix-op-pub) / sumcostop)
+   set cost-op-pub ((costv-op-pub + costfix-op-pub) / 2)
 
 
  ; UPDATE SAFETY SCORES according to total number of accidents by mode
@@ -2405,7 +2413,7 @@ INPUTBOX
 94
 318
 scale-population
-30.0
+10.0
 1
 0
 Number
@@ -2494,7 +2502,7 @@ Satisf-p
 Satisf-p
 0
 1
-0.35
+0.3
 0.01
 1
 NIL
