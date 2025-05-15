@@ -1658,6 +1658,10 @@ to update-scores-tech-attributes
    set costv-op-mot (1 - (costv-mot  / (costv-mot + costv-car + costv-op-pub))) ; standardization of cost to obtain a score
    set costv-op-car (1 - (costv-car /  (costv-mot + costv-car + costv-op-pub))) ; standardization of cost to obtain a score
 
+
+   set costv-op-mot (1 - (costv-mot  / (costv-mot + costv-car + 0))) ; standardization of cost to obtain a score
+   set costv-op-car (1 - (costv-car /  (costv-mot + costv-car + 0))) ; standardization of cost to obtain a score
+
 ;   set costv-op-mot (1 - ((costv-mot - 0) / (max-costv - 0))) ; standardization of cost to obtain a score
 ;   set costv-op-car (1 - ((costv-car - 0) / (max-costv - 0))) ; standardization of cost to obtain a score
 
@@ -2413,7 +2417,7 @@ INPUTBOX
 94
 318
 scale-population
-10.0
+5.0
 1
 0
 Number
