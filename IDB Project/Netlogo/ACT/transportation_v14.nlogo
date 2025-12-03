@@ -653,7 +653,11 @@ ask n-of (round males-social-1 * prob-m1p) people with [h-social-type = 1 and ge
   set t-type 3  ; pub
 ]
 
-ask n-of (round males-social-1 * prob-m1t) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+;ask n-of (round males-social-1 * prob-m1t) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+;  set t-type 4  ; taxi
+;]
+
+ask people with [h-social-type = 1 and gender = 1 and t-type = 0] [
   set t-type 4  ; taxi
 ]
 
@@ -667,7 +671,11 @@ ask n-of (round males-social-2 * prob-m2m) people with [h-social-type = 2 and ge
 ask n-of (round males-social-2 * prob-m2p) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
   set t-type 3  ; pub (bus)
 ]
-ask n-of (round males-social-2 * prob-m2t) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+;ask n-of (round males-social-2 * prob-m2t) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+;  set t-type 4  ; taxi
+;]
+
+ask people with [h-social-type = 2 and gender = 1 and t-type = 0] [
   set t-type 4  ; taxi
 ]
 
@@ -682,7 +690,11 @@ ask n-of (round males-social-3 * prob-m3m) people with [h-social-type = 3 and ge
 ask n-of (round males-social-3 * prob-m3p) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
   set t-type 3  ; pub
 ]
-ask n-of (round males-social-3 * prob-m3t) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+;ask n-of (round males-social-3 * prob-m3t) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+;  set t-type 4  ; taxi
+;]
+
+ask people with [h-social-type = 3 and gender = 1 and t-type = 0] [
   set t-type 4  ; taxi
 ]
 
@@ -696,7 +708,11 @@ ask n-of (round females-social-1 * prob-f1m) people with [h-social-type = 1 and 
 ask n-of (round females-social-1 * prob-f1p) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
   set t-type 3  ; pub (bus)
 ]
-ask n-of (round females-social-1 * prob-f1t) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+;ask n-of (round females-social-1 * prob-f1t) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+;  set t-type 4  ; taxi
+;]
+
+ask people with [h-social-type = 1 and gender = 2 and t-type = 0] [
   set t-type 4  ; taxi
 ]
 
@@ -710,7 +726,11 @@ ask n-of (round females-social-2 * prob-f2m) people with [h-social-type = 2 and 
 ask n-of (round females-social-2 * prob-f2p) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
   set t-type 3  ; pub (bus)
 ]
-ask n-of (round females-social-2 * prob-f2t) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+;ask n-of (round females-social-2 * prob-f2t) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+;  set t-type 4  ; taxi
+;]
+
+ask people with [h-social-type = 2 and gender = 2 and t-type = 0] [
   set t-type 4  ; taxi
 ]
 
@@ -724,10 +744,12 @@ ask n-of (round females-social-3 * prob-f3m) people with [h-social-type = 3 and 
 ask n-of (round females-social-3 * prob-f3p) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
   set t-type 3  ; pub (bus)
 ]
-ask n-of (round females-social-3 * prob-f3t) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+;ask n-of (round females-social-3 * prob-f3t) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+;  set t-type 4  ; taxi
+;]
+ask people with [h-social-type = 3 and gender = 2 and t-type = 0] [
   set t-type 4  ; taxi
 ]
-
 
 ; Assignation for remanining people with t-type 0
 
@@ -1877,7 +1899,6 @@ to imitation ; transpot-mode chosen according to the most used among links in th
   if taxi = maxitaxi  and taxi > car and taxi > pub [ifelse random-float 1 < 0.5 [set t-type 2] [set t-type 4]]
 
   if car = pub  and car > maxitaxi and car > taxi [ifelse random-float 1 < 0.5 [set t-type 1] [set t-type 3]]
-  ;;;;;;;;AQUI
 end
 
 to inquiry ; Rational process that involves social interaction. Only evaluates transport modes used by contacts in the own network.
@@ -1885,30 +1906,37 @@ to inquiry ; Rational process that involves social interaction. Only evaluates t
    let car count link-neighbors with [t-type = 1]
    let maxitaxi count link-neighbors with [t-type = 2]
    let pub count link-neighbors with [t-type = 3]
+   let taxi count link-neighbors with [t-type = 4]
    set utility -1
 
    ; evaluates all the transport modes in the network
     if inquiry-process = "everybody"
      [
-      if maxitaxi > 0 and car = 0 and pub = 0 [set utility satisfaction-maxitaxi]
-      if maxitaxi = 0 and car > 0 and pub = 0 [set utility satisfaction-car]
-      if maxitaxi = 0 and car = 0 and pub > 0 [set utility satisfaction-pub]
-      if maxitaxi > 0 and car > 0 and pub = 0 [set utility max (list satisfaction-maxitaxi satisfaction-car)]
-      if maxitaxi > 0 and car = 0 and pub > 0 [set utility max (list satisfaction-maxitaxi satisfaction-pub)]
-      if maxitaxi = 0 and car > 0 and pub > 0 [set utility max (list satisfaction-car satisfaction-pub)]
-      if maxitaxi > 0 and car > 0 and pub > 0 [set utility max (list satisfaction-maxitaxi satisfaction-car satisfaction-pub)]
+      if maxitaxi > 0 and car = 0 and pub = 0 and taxi = 0[set utility satisfaction-maxitaxi]
+      if maxitaxi = 0 and car > 0 and pub = 0 and taxi = 0[set utility satisfaction-car]
+      if maxitaxi = 0 and car = 0 and pub > 0 and taxi = 0[set utility satisfaction-pub]
+      if maxitaxi = 0 and car = 0 and pub = 0 and taxi = 0[set utility satisfaction-taxi]
+      if maxitaxi > 0 and car > 0 and pub = 0 and taxi > 0[set utility max (list satisfaction-maxitaxi satisfaction-car satisfaction-taxi)]
+      if maxitaxi > 0 and car = 0 and pub > 0 and taxi > 0[set utility max (list satisfaction-maxitaxi satisfaction-pub satisfaction-taxi)]
+      if maxitaxi = 0 and car > 0 and pub > 0 and taxi > 0[set utility max (list satisfaction-car satisfaction-pub satisfaction-taxi)]
+      if maxitaxi > 0 and car > 0 and pub > 0 and taxi = 0[set utility max (list satisfaction-maxitaxi satisfaction-car satisfaction-pub)]
+      if maxitaxi > 0 and car > 0 and pub > 0 and taxi > 0[set utility max (list satisfaction-maxitaxi satisfaction-car satisfaction-pub satisfaction-taxi)]
      ]
 
    ; evaluates the most frequently used transport mode in the network (CREO QUE ESTE CÓDIGO FUNCIONA TAMBIÉN PARA EVALUAR "EVERYBODY")
+
     if inquiry-process = "most-used"
      [
-      if maxitaxi = car and maxitaxi = pub [set utility one-of (list satisfaction-maxitaxi satisfaction-car satisfaction-pub) ]
-      if maxitaxi = car and maxitaxi > pub [set utility one-of (list satisfaction-maxitaxi satisfaction-car)]
-      if maxitaxi = pub and maxitaxi > car [set utility one-of (list satisfaction-maxitaxi satisfaction-pub)]
-      if car = pub and car > maxitaxi [set utility one-of (list satisfaction-car satisfaction-pub)]
-      if maxitaxi = max (list maxitaxi car pub) [set utility satisfaction-maxitaxi]
-      if car = max (list maxitaxi car pub) [set utility satisfaction-car]
-      if pub = max (list maxitaxi car pub) [set utility satisfaction-pub]
+      if maxitaxi = car and maxitaxi = pub and maxitaxi = taxi [set utility one-of (list satisfaction-maxitaxi satisfaction-car satisfaction-pub satisfaction-taxi) ]
+      if maxitaxi = car and maxitaxi > pub and maxitaxi > taxi [set utility one-of (list satisfaction-maxitaxi satisfaction-car)]
+      if maxitaxi = pub and maxitaxi > car and maxitaxi > taxi[set utility one-of (list satisfaction-maxitaxi satisfaction-pub)]
+      if maxitaxi = taxi and maxitaxi > car and maxitaxi > pub[set utility one-of (list satisfaction-maxitaxi satisfaction-taxi)]
+      if car = pub and car > maxitaxi and car > taxi[set utility one-of (list satisfaction-car satisfaction-pub)]
+      if car = taxi and car > maxitaxi and car > pub[set utility one-of (list satisfaction-car satisfaction-taxi)]
+      if maxitaxi = max (list maxitaxi car pub taxi) [set utility satisfaction-maxitaxi]
+      if car = max (list maxitaxi car pub taxi) [set utility satisfaction-car]
+      if pub = max (list maxitaxi car pub taxi) [set utility satisfaction-pub]
+      if taxi = max (list maxitaxi car pub taxi) [set utility satisfaction-taxi]
      ]
 
    ; decisión: if satisfaction with the transport mode compared is higher, then adopts that mode.   adopta sólo si halla una satisfacción mayor que la actual
@@ -1917,6 +1945,7 @@ to inquiry ; Rational process that involves social interaction. Only evaluates t
       if utility = satisfaction-car [set t-type 1 ]
       if utility = satisfaction-maxitaxi [set t-type 2 ]
       if utility = satisfaction-pub [set t-type 3 ]
+      if utility = satisfaction-taxi [set t-type 4 ]
      ]
 end
 
@@ -1939,7 +1968,9 @@ to deliberation ;  this is a rational and individual process of selection. The n
 
   let utility-pub (beta1 * cost-buy-pub + beta2 * cost-op-pub + beta3 * safety-pub + beta4 * security-pub + beta5 * comfort-pub + beta6 * time-pub + beta7 * pollution-tot + beta8 * convinience-pub)
 
-  let cumulsum exp(utility-maxitaxi) + exp(utility-car) + exp(utility-pub)
+  let utility-taxi (beta1 * cost-buy-taxi + beta2 * cost-op-taxi + beta3 * safety-taxi + beta4 * security-taxi + beta5 * comfort-taxi + beta6 * time-taxi + beta7 * pollution-tot + beta8 * convinience-taxi)
+
+  let cumulsum exp(utility-maxitaxi) + exp(utility-car) + exp(utility-pub) + exp(utility-taxi)
 
   let P1 exp(utility-car) / cumulsum
 
@@ -1947,13 +1978,18 @@ to deliberation ;  this is a rational and individual process of selection. The n
 
   let P3 exp(utility-pub) / cumulsum
 
-  let choose  random-float (P1 + P2 + P3)
+  let P4 exp(utility-taxi) / cumulsum
+
+  let choose  random-float (P1 + P2 + P3 + P4)
 
   ifelse choose < P1
    [set t-type 1 ]
     [ifelse choose < P1 + P2
      [set t-type 2 ]
-     [set t-type 3 ]
+      [ifelse choose < P1 + P3 + P3
+        [set t-type 3 ]
+        [set t-type 4 ]
+      ]
     ]
 
 
@@ -2156,11 +2192,11 @@ end
 GRAPHICS-WINDOW
 199
 10
-908
-720
+957
+769
 -1
 -1
-1.0
+5.0
 1
 10
 1
@@ -2171,9 +2207,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-700
+149
 0
-700
+149
 0
 0
 1
@@ -2322,9 +2358,9 @@ count people with [t-type = 1]
 MONITOR
 967
 670
-1022
+1032
 715
-Moto
+Maxitaxis
 count people with [t-type = 2]
 17
 1
@@ -2364,7 +2400,7 @@ INPUTBOX
 73
 245
 deviation
-0.0
+0.1
 1
 0
 Number
@@ -2383,9 +2419,9 @@ acc-car-count
 MONITOR
 1412
 576
-1472
+1474
 621
-acc-mot
+acc-maxi
 acc-maxitaxi-count
 17
 1
@@ -2408,7 +2444,7 @@ INPUTBOX
 94
 318
 scale-population
-0.0
+200.0
 1
 0
 Number
@@ -2530,8 +2566,9 @@ true
 "" ""
 PENS
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 1 ]) / (count people)]"
-"moto" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 2 ]) / (count people)]"
+"maxitaxis" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 2 ]) / (count people)]"
 "pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 3 ]) / (count people)]"
+"taxi" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 2 [plot (count people with [t-type = 4 ]) / (count people)]"
 
 MONITOR
 1269
@@ -2547,9 +2584,9 @@ count people with [t-type = 1] / count people
 MONITOR
 1269
 666
-1326
+1328
 711
-moto
+maxitaxi
 count people with [t-type = 2] / count people
 2
 1
@@ -2572,7 +2609,7 @@ INPUTBOX
 178
 169
 Time-steps
-0.0
+10.0
 1
 0
 Number
@@ -2739,8 +2776,9 @@ true
 PENS
 "average" 1.0 0 -10899396 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people]"
 "car" 1.0 0 -2674135 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 1]]"
-"moto" 1.0 0 -16777216 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 2]]"
+"maxitaxi" 1.0 0 -16777216 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 2]]"
 "pub" 1.0 0 -13345367 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 3]]"
+"taxi" 1.0 0 -7500403 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 4]]\n"
 
 MONITOR
 966
@@ -2764,12 +2802,12 @@ commute
 1
 
 MONITOR
-1532
-576
-1589
-621
+1531
+624
+1588
+669
 tot acc
-acc-car-count + acc-maxitaxi-count + acc-pub-count
+acc-car-count + acc-maxitaxi-count + acc-pub-count + acc-taxi-count
 17
 1
 11
@@ -2794,6 +2832,7 @@ PENS
 "maxitaxi" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 0 [plot acc-maxitaxi-count]"
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 0 [plot acc-car-count]"
 "pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 0 [plot acc-pub-count]"
+"taxi" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 0 [plot acc-taxi-count]"
 
 PLOT
 1598
@@ -2813,8 +2852,9 @@ false
 PENS
 "tot" 1.0 0 -10899396 true "" "plot count people with [safety = 1]"
 "car" 1.0 0 -2674135 true "" "plot count people with [safety = 1 and t-type = 1]"
-"mot" 1.0 0 -16777216 true "" "plot count people with [safety = 1 and t-type = 2]"
+"maxi" 1.0 0 -16777216 true "" "plot count people with [safety = 1 and t-type = 2]"
 "pub" 1.0 0 -13345367 true "" "plot count people with [safety = 1 and t-type = 3]"
+"taxi" 1.0 0 -7500403 true "" "plot count people with [safety = 1 and t-type = 4]"
 
 TEXTBOX
 2040
@@ -2861,9 +2901,9 @@ count people with [safety = 1 and t-type = 3]
 
 MONITOR
 1774
-576
+624
 1831
-621
+669
 acc-tot
 count people with [safety = 1]
 17
@@ -2871,10 +2911,10 @@ count people with [safety = 1]
 11
 
 PLOT
-1598
-632
-1831
-790
+1595
+677
+1828
+835
 Incidents by tick
 NIL
 NIL
@@ -2888,14 +2928,15 @@ true
 PENS
 "tot" 1.0 0 -10899396 true "" "plot count people with [security = 1]"
 "car" 1.0 0 -2674135 true "" "plot count people with [security = 1 and t-type = 1]"
-"mot" 1.0 0 -16777216 true "" "plot count people with [security = 1 and t-type = 2]"
+"maxi" 1.0 0 -16777216 true "" "plot count people with [security = 1 and t-type = 2]"
 "pub" 1.0 0 -13345367 true "" "plot count people with [security = 1 and t-type = 3]"
+"taxi" 1.0 0 -7500403 true "" "plot count people with [security = 1 and t-type = 4]"
 
 PLOT
-1356
-632
-1591
-790
+1353
+677
+1588
+835
 Incidents by period
 NIL
 NIL
@@ -2909,8 +2950,9 @@ true
 PENS
 "tot" 1.0 0 -10899396 true "" "if (ticks mod (30)) = 1 [plot (inc-maxitaxi-count + inc-car-count + inc-pub-count) ]"
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot inc-car-count]"
-"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot inc-maxitaxi-count]"
+"maxi" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot inc-maxitaxi-count]"
 "pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 [plot inc-pub-count]"
+"taxi" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot inc-taxi-count]"
 
 MONITOR
 1536
@@ -2926,9 +2968,9 @@ mean [satisfaction] of people with [t-type = 1]
 MONITOR
 1536
 272
-1593
+1596
 317
-sat-mot
+sat-maxi
 mean [satisfaction] of people with [t-type = 2]
 17
 1
@@ -2959,9 +3001,9 @@ mean [uncertainty] of people with [t-type = 1]
 MONITOR
 1597
 272
-1653
+1664
 317
-unc-mot
+unc-maxi
 mean [uncertainty] of people with [t-type = 2]
 17
 1
@@ -2996,16 +3038,17 @@ false
 PENS
 "tot" 1.0 0 -10899396 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people]"
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people with [t-type = 1]]"
-"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people with [t-type = 2]]"
+"maxi" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people with [t-type = 2]]"
 "pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people with [t-type = 3]]"
+"taxi" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people with [t-type = 4]]"
 
 MONITOR
-1530
-795
-1591
+1527
 840
+1588
+885
 inc-tot
-inc-car-count + inc-maxitaxi-count + inc-pub-count
+inc-car-count + inc-maxitaxi-count + inc-pub-count + inc-taxi-count
 17
 1
 11
@@ -3028,10 +3071,10 @@ NIL
 1
 
 MONITOR
-1598
-795
-1678
+1595
 840
+1675
+885
 NIL
 pollution-tot
 17
@@ -3058,6 +3101,7 @@ PENS
 "car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (sum [satisfaction-car] of people with [t-type = 2] / count people with [t-type = 2])]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (sum [satisfaction-pub] of people with [t-type = 3] / count people with [t-type = 3])]"
 "thr" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot mean [ satisfaction-threshold ] of people with [t-type = 3]]"
+"taxi" 1.0 0 -955883 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (sum [satisfaction-taxi] of people with [t-type = 4] / count people with [t-type = 4])]"
 
 PLOT
 1871
@@ -3076,9 +3120,10 @@ true
 "" ""
 PENS
 "car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 1] )]"
-"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 2] )]"
+"maxi" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 2] )]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 3] )]"
 "thr" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot mean [ uncertainty-threshold ] of people  with [t-type = 3]]"
+"taxi" 1.0 0 -955883 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 4] )]"
 
 PLOT
 1599
@@ -3099,6 +3144,7 @@ PENS
 "car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-car] of people with [t-type = 1]]"
 "maxitaxi" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-maxitaxi] of people with [t-type = 2]]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-pub] of people with [t-type = 3]]"
+"taxi" 1.0 0 -7500403 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-taxi] of people with [t-type = 4]]"
 
 PLOT
 1765
@@ -3119,13 +3165,14 @@ PENS
 "car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-car] of people with [t-type = 1]]"
 "maxitaxi" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-maxitaxi] of people with [t-type = 2]]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-pub] of people with [t-type = 3]]"
+"taxi" 1.0 0 -7500403 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-taxi] of people with [t-type = 4]]"
 
 MONITOR
-1837
-576
-1907
-621
-wait time
+2040
+421
+2127
+466
+wait time pub
 mean [wait-time-p] of people / 30
 2
 1
@@ -3150,6 +3197,7 @@ PENS
 "car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-car] of people with [t-type = 1]]"
 "maxitaxi" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-maxitaxi] of people with [t-type = 2]]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-pub] of people with [t-type = 3]]"
+"taxi" 1.0 0 -7500403 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-taxi] of people with [t-type = 4]]"
 
 PLOT
 1929
@@ -3170,6 +3218,7 @@ PENS
 "car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-car] of people with [t-type = 1]]"
 "maxitaxi" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-maxitaxi] of people with [t-type = 2]]"
 "pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-pub] of people with [t-type = 3]]"
+"taxi" 1.0 0 -7500403 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-taxi] of people with [t-type = 4]]"
 
 PLOT
 2099
@@ -3190,6 +3239,7 @@ PENS
 "default" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-car] of people with [t-type = 1]]"
 "pen-1" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-maxitaxi] of people with [t-type = 2]]"
 "pen-2" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-pub] of people with [t-type = 3]]"
+"pen-3" 1.0 0 -7500403 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-taxi] of people with [t-type = 4]]"
 
 PLOT
 2267
@@ -3210,10 +3260,10 @@ PENS
 "default" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [pollution-tot] of people]"
 
 MONITOR
-1919
-576
-2004
-621
+2040
+562
+2125
+607
 Wait time total
 mean [wait-time-p] of people
 2
@@ -3237,8 +3287,9 @@ false
 "" ""
 PENS
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"repetition\"])]"
-"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"repetition\"])]"
+"maxi" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"repetition\"])]"
 "pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"repetition\"])]"
+"taxi" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 4 AND type-choice = \"repetition\"])]"
 
 MONITOR
 1053
@@ -3268,8 +3319,9 @@ false
 "" ""
 PENS
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"imitation\"])]"
-"moto" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"imitation\"])]"
+"maxi" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"imitation\"])]"
 "pub2" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"imitation\"])]"
+"taxi" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 4 AND type-choice = \"imitation\"])]"
 
 TEXTBOX
 67
@@ -3298,14 +3350,15 @@ false
 "" ""
 PENS
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"inquiry\"])]"
-"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"inquiry\"])]"
+"maxi" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"inquiry\"])]"
 "pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"inquiry\"])]"
+"taxi" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 4 AND type-choice = \"inquiry\"])]"
 
 PLOT
-2095
-541
-2255
-661
+1840
+787
+2000
+907
 Deliberate
 NIL
 NIL
@@ -3318,8 +3371,9 @@ false
 "" ""
 PENS
 "car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"deliberation\"])]"
-"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"deliberation\"])]"
+"maxi" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"deliberation\"])]"
 "pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"deliberation\"])]"
+"taxi" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 4 AND type-choice = \"deliberation\"])]"
 
 TEXTBOX
 203
@@ -3430,6 +3484,94 @@ Satisf-t
 1
 NIL
 HORIZONTAL
+
+MONITOR
+967
+777
+1024
+822
+Taxis
+count people with [t-type = 4]
+17
+1
+11
+
+MONITOR
+1270
+764
+1327
+809
+taxi
+count people with [t-type = 4] / count people
+17
+1
+11
+
+MONITOR
+1536
+368
+1593
+413
+sat-taxi
+mean [satisfaction] of people with [t-type = 4]
+17
+1
+11
+
+MONITOR
+1598
+368
+1656
+413
+unc-taxi
+mean [uncertainty] of people with [t-type = 4]
+17
+1
+11
+
+MONITOR
+1531
+576
+1588
+621
+acc-taxi
+acc-taxi-count
+17
+1
+11
+
+MONITOR
+1776
+576
+1833
+621
+acc-taxi
+count people with [safety = 1 and t-type = 4]
+17
+1
+11
+
+MONITOR
+2040
+467
+2127
+512
+wait time taxi
+mean [wait-time-t] of people / 30
+17
+1
+11
+
+MONITOR
+2040
+515
+2132
+560
+wait time maxi
+mean [wait-time-m] of people / 30
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
