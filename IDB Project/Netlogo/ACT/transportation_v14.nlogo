@@ -113,6 +113,8 @@ people-own[
   age             ;; 15 to 60 years
   destination-community ;1 TO 22
   t-type          ;;1 car 2 moto 3 bus 4 taxi
+  t-type-a        ; used to hold first and second half travel modes
+  t-type-b
   speed           ;; actual speed depending on the current mode
   speed-m         ; speed normally distributed for motorcycle
   speed-c         ; speed normally distributed for car
@@ -223,7 +225,7 @@ to setup
   reset-ticks
   ;resize-world 0 700 0 700 set-patch-size 1
   ; changed to patch size 5 and reduced world size to improve performance -Max
-  resize-world 0 149 0 149 set-patch-size 5
+  resize-world 0 199 0 199 set-patch-size 3
   ;Load Vector Boundary my-csv-dataset
   ;set my-gis-dataset gis:load-dataset "Data/test.shp"
   ;set my-gis-dataset gis:load-dataset "data/raw_data/shp/cali_community_wgs84.shp"
@@ -319,7 +321,7 @@ to draw
   ]
 
   ; Opcional: limpiar PID previo
-  ask patches [ set PID 0 set centroid? false ]
+  ask patches [ set PID CID set centroid? false ]
 
   ; ---- Pintar por CTYPE y asignar PID por intersección ----
   let x 1
@@ -334,12 +336,12 @@ to draw
 
     let center-point gis:location-of gis:centroid-of feature
     ask patch (item 0 center-point) (item 1 center-point) [
-      set PID x
+      ;set PID x
       set centroid? true
     ]
 
     ask patches with [ gis:intersects? feature self ] [
-      set PID x
+      ;set PID x
     ]
     set x x + 1
   ]
@@ -764,6 +766,16 @@ ask people with [h-social-type = 3 and gender = 2 and t-type = 0] [
   ]
   ]
 
+  ; This is the place where we can switch mode of transport for the second leg
+  ask people
+  [set t-type-a t-type
+    ifelse t-type = 1
+    [ set t-type-b 1]
+    [ set t-type-b (2 + random 3) ]
+
+    ;set t-type-b t-type
+  ]
+
   ask people
   [set-transportation-info-based-on-type]
 
@@ -1182,7 +1194,7 @@ to go
   if ticks > 1
   [
 
-    if ticks mod (30) = 0.000 ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
+    if ticks mod (30) = 0 ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
                           ; procedures that run every decision period
     [
       update-scores-tech-attributes ; calulates values for tech attributes to be used in satisfaction update for each agent in every decision tick
@@ -1190,15 +1202,74 @@ to go
       update-experience      ; number of times that a person has chosen every transport mode over the time steps
       update-uncertainty     ; updates uncertainty level for each agent in every decision period
       update-type-choice     ; according to satisfaction and uncertainty applies the decision making rule
-      ask people [move-to home-location set arrived? false]
+      ; only move people back after second half of the commute is over
+      if ticks mod (60) = 0
+      [
+        ask people [move-to home-location set arrived? false]
+      ]
     ]
 
     if ticks mod 30 = 1
     ; procedures that run at the beggining of the new decision period
     [
       choice                 ; Breaks population into groups according to their type of choice: "repetition", "imitation", "deliberation", "inquiring"
-      update-age-people      ; updates people age
-                             ;update-ownership      ; updates car or motrocycle ownership depending on mode choice
+
+      ifelse ticks mod 60 = 1
+      [
+        update-age-people      ; updates people age
+        ; save current value to holder for transport type for second half, and load the value for first half of commute
+        ask people [
+
+          ; this section makes sure that people with cars commute both legs in a car, and handles switching between cars and other modes
+          ; here, t-type-a is the new choice for the first leg, and t-type-b is the choice for the second leg
+          ; switched from a non-car to car, so need to update all legs to car type
+          if t-type = 1
+          [
+            ; either switched second leg to car, or kept second leg at car; therefore first leg should become car too
+            set t-type-a 1
+          ]
+          ; second leg was not a car and was not chosen to be a car
+          if t-type != 1 and t-type-b != 1
+          [
+            ; however, if the first leg became a car, t-type-a should be 1. Then we need to update second leg accordingly
+            if t-type-a = 1
+            [
+              ; update the second leg to make sure that both legs use car
+              set t-type 1
+              set t-type-b 1
+            ]
+          ]
+          ; if we switched from a car to another mode in the second leg, we need to see what happened in the first leg
+          if t-type != 1 and t-type-b = 1
+          [
+            ; if first leg is also not car now, that means both legs decided to move away from car. So just keep their decision
+            ; but if first leg is still car, we should switch the car to another mode.
+            if t-type-a = 1
+            [
+              set t-type-a random 3 + 2 ; currently, pick randomly between non-car modes. In the future, this will be assigned based on SURVEY data
+            ]
+          ]
+
+          ; end section
+          ; now update the t-type to continue the cycle
+          set t-type-b t-type
+          set t-type t-type-a
+
+        ]
+        set-uncertainty-threshold
+        set-satisfaction-threshold
+      ]
+      [
+        ; save current value to holder for transport type for first half, and load the value for second half of commute
+        ask people [
+          set t-type-a t-type
+          set t-type t-type-b
+
+        ]
+        set-uncertainty-threshold
+        set-satisfaction-threshold
+      ]
+      ;update-ownership      ; updates car or motrocycle ownership depending on mode choice
     ]
     ;; SAVE FINAL VIDEO
     if ticks = (Time-steps * 30 + 2)
@@ -1224,9 +1295,9 @@ to commute
     let people-around near-people with [not arrived?]; only count people who are not already at work
 
     let cars count people-around with [t-type = 1]
-    let maxitaxi-equiv-car (count people-around with [t-type = 2]) * 0.06  ; 4 people in 1 maxitaxi
-    let pub-equiv-car (count people-around with [t-type = 3]) * 0.01  ;60 people in 1 bus
-    let taxi-equiv-car (count people-around with [t-type = 4]) * 1 ;1 person per taxi
+    let maxitaxi-equiv-car (count people-around with [t-type = 2]) * 0.0625  ; 16 people in 1 maxitaxi
+    let pub-equiv-car (count people-around with [t-type = 3]) * 0.016  ; 60 people in 1 bus
+    let taxi-equiv-car (count people-around with [t-type = 4]) * 0.5 ; 2 people per taxi
 
     ;let cars             (count people-here with [t-type = 2]) + (sum [count people-here with [t-type = 2]] of neighbors)          ; neighbors corresponds to the agentset containing the 8 surrounding patches (9 including it self). It is a patch primitive, thats why it's needed to ad people-here of neighbors
     ;let mot-equiv-car  (((count people-here with [t-type = 1]) + (sum [count people-here with [t-type = 1]] of neighbors)) * 0.5) ; 2 motorcycles equivalent
@@ -1234,7 +1305,7 @@ to commute
 
     let equiv-cars (cars + maxitaxi-equiv-car + pub-equiv-car + taxi-equiv-car)
    ; set density (equiv-cars * scaling-factor / 2) ; using adjusted number
-    set density (equiv-cars / ((count people / 22500) * 10) ) ; DENSITY SHOULD BE THE NUMBER OF CARS ON ROADS DIVIDED THE "CAPACITY" OF THE ROAD, I'M CALCULATING IT AS THE NUMBER OF PEOPLE PER PATCH * X TIMES
+    set density (equiv-cars / ((count people / 10000) * 10) ) ; DENSITY SHOULD BE THE NUMBER OF CARS ON ROADS DIVIDED THE "CAPACITY" OF THE ROAD, I'M CALCULATING IT AS THE NUMBER OF PEOPLE PER PATCH * X TIMES
 
 
  ; effect of road accidents
@@ -1302,17 +1373,133 @@ to commute
 ;   [move-to workplace set color black set arrived? true]
 
 ; movement with CID =! 0
-    ;speed sqrt(2) ajuste por hipotenusa;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    let step-size speed * 1.41
-    let next-patch patch-ahead step-size
 
-    if next-patch != nobody [
-      ifelse [CID] of next-patch = 0 [
-        rt 15  ; gira 15 grados a la derecha para intentar bordear el mar;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-      ][
-        fd step-size
+     let step-size speed
+     let next-patch patch-ahead step-size
+
+    ; if close to work, move there and then set flag to "arrived" and don't commute anymore.
+    (ifelse distance workplace <= step-size
+      [
+        move-to workplace
+        set color black
+        set arrived? true
       ]
-    ]
+
+      ; else, see if the path ahead is available (not water).
+      next-patch != nobody and [CID] of next-patch = 0
+      [
+
+        ; if it is not available, look ahead to the left and right 45 degrees
+        let left-patch patch-left-and-ahead 45 step-size
+        let right-patch patch-right-and-ahead 45 step-size
+
+        ; make sure we avoid errors
+        if left-patch != nobody and right-patch != nobody
+        [
+          ; if water on the left...
+          (ifelse [CID] of left-patch = 0
+            [
+              ; ...and water on the right... and ahead...
+              ifelse [CID] of right-patch = 0
+              [
+                ; ...then we need to turn away from the water. But which direction, left or right?
+                ;  Find a random other turtle: in our map, the majority of turtles will be in the diretion that
+                ; you want to go to in order to go around water.
+                let patch-in-crowd one-of turtles
+                ; to find which way to turn, we can compare the distances to this random agent from the patch to the left/right
+                let rd 0
+                let ld 0
+
+                ask patch-in-crowd
+                [
+                  set rd distance right-patch
+                  set ld distance left-patch
+                ]
+
+                ; now prepare to rotate until a clear path emerges
+                let tracker 0
+
+                ifelse rd < ld
+                [
+                  ; rotate right if the random agent is to the right
+                  while [[CID] of patch-ahead step-size = 0  and tracker < 37]
+                  [
+                    right 10
+                    set tracker tracker + 1
+                  ]
+                  ; move forward and then face workplace again
+                  fd step-size
+                  face workplace
+                ]
+                [
+                  ; rotate left if the random agent is to the left
+                  while [[CID] of patch-ahead step-size = 0  and tracker < 37]
+                  [
+                    left 10
+                    set tracker tracker + 1
+                  ]
+                  ; move forward and then face workplace again
+                  fd step-size
+                  face workplace
+                ]
+
+              ]
+              [
+                ; if ahead is blocked, the left is blocked and right is available, move slightly right
+                rt 45
+                fd step-size
+                face workplace
+              ]
+            ]
+            [CID] of right-patch = 0
+            [
+              ; if ahead is blocked, the right is blocked, and left is available, move slightly left
+              lt 45
+              fd step-size
+              face workplace
+            ]
+            [
+              ; if ahead is blocked, but both left and right are available, we again have to decide whether to turn left or right
+              ; pick a random agent
+              let patch-in-crowd one-of turtles
+
+              let rd 0
+              let ld 0
+
+              ; find whether left or right is closer
+              ask patch-in-crowd
+              [
+                set rd distance right-patch
+                set ld distance left-patch
+              ]
+
+              ; turn into the appropriate direction that is closer to the majority of agents
+              ifelse rd < ld
+              [
+                right 45
+                fd step-size
+                face workplace
+              ]
+              [
+                left 45
+                fd step-size
+                face workplace
+              ]
+          ])
+        ]
+
+      ]
+      next-patch != 0
+      [
+        ; if ahead is available, move ahead.
+        fd step-size
+
+      ]
+      [
+        fd (-1 * step-size)
+      ]
+
+    )
 
     if distance workplace <= step-size [
       move-to workplace
@@ -2192,11 +2379,11 @@ end
 GRAPHICS-WINDOW
 199
 10
-957
-769
+807
+619
 -1
 -1
-5.0
+3.0
 1
 10
 1
@@ -2207,9 +2394,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-149
+199
 0
-149
+199
 0
 0
 1
@@ -2547,7 +2734,7 @@ CHOOSER
 inquiry-process
 inquiry-process
 "everybody" "most-used"
-1
+0
 
 PLOT
 1032
