@@ -200,6 +200,7 @@ people-own[
   car-owner     ; 1-yes, 0-no
   ;maxitaxi-owner    ; 1-yes, 0-no
   arrived?      ; true- made it to destination, false- commuting
+  second-half?  ; true - still commuting in the second leg of the simulation; false - no commuting then
   big-destination ; used to determine whether this person should be part of a school/work network
   family?        ; used to indicate that this person is part of a family. Specifically, used during link setup
 ]
@@ -520,6 +521,7 @@ to distribute-people ; move genratend gents witin their community
     move-to one-of patches with [pid = poly-in]
     set home-location patch-here
     set arrived? false ; make sure we set up whether people are at home or not
+    set second-half? true
   ]
 end
 
@@ -770,7 +772,7 @@ ask people with [h-social-type = 3 and gender = 2 and t-type = 0] [
   ask people
   [set t-type-a t-type
     ifelse t-type = 1
-    [ set t-type-b 1]
+    [ set t-type-b 1 ]
     [ set t-type-b (2 + random 3) ]
 
     ;set t-type-b t-type
@@ -1193,21 +1195,35 @@ to go
 
   if ticks > 1
   [
-
-    if ticks mod (30) = 0 ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
-                          ; procedures that run every decision period
+     if ticks mod (60) = 30
     [
       update-scores-tech-attributes ; calulates values for tech attributes to be used in satisfaction update for each agent in every decision tick
       update-satisfaction    ; updates values of satisfcation for each agent in every tick
       update-experience      ; number of times that a person has chosen every transport mode over the time steps
       update-uncertainty     ; updates uncertainty level for each agent in every decision period
       update-type-choice     ; according to satisfaction and uncertainty applies the decision making rule
-      ; only move people back after second half of the commute is over
-      if ticks mod (60) = 0
-      [
-        ask people [move-to home-location set arrived? false]
+
+      ; if people arrived at 30 ticks, then there is no second half of the commute and we don't need to run, flagging agents as such
+      ask people [if arrived? [ set second-half? false ]]
+    ]
+    ; only move people back after second half of the commute is over
+    if ticks mod (60) = 0
+    [
+      ; thus only update the scores and attributes when the agents commute in the second half
+
+        update-scores-tech-attributes ; calulates values for tech attributes to be used in satisfaction update for each agent in every decision tick
+        update-satisfaction    ; updates values of satisfcation for each agent in every tick
+        update-experience      ; number of times that a person has chosen every transport mode over the time steps
+        update-uncertainty     ; updates uncertainty level for each agent in every decision period
+        update-type-choice     ; according to satisfaction and uncertainty applies the decision making rule
+
+      ask people [
+        move-to home-location
+        set arrived? false ; reset indicator of arrival to work
+        set second-half? true ; and assume that agents will commute both legs again
       ]
     ]
+
 
     if ticks mod 30 = 1
     ; procedures that run at the beggining of the new decision period
@@ -1776,7 +1792,7 @@ end
 
 to update-scores-tech-attributes
 
-  ask people
+  ask people with [second-half?]
   [
 
    ; UPDATE PRURCHASE COST SCORES
@@ -1798,7 +1814,7 @@ to update-scores-tech-attributes
    ;set min-costv min [costv-maxitaxi] of people ; min variable operating cost in the system
 
 
-    ask people
+  ask people with [second-half?]
   [
     ;show max-costv
     ;show min-costv
@@ -1877,7 +1893,7 @@ to update-scores-tech-attributes
   ; UPDATE COMFORT SCORES
 
    ; Comfort score affected by random events (weather, mechanical failure) and saturation of public transit
-  ask people [
+  ask people with [second-half?] [
 
     let prob-bad-weather  random-float 0.5     ; has impact on moto and public transit comfort
 
@@ -1899,7 +1915,7 @@ to update-scores-tech-attributes
   ; UPDATE CONVINIENCE SCORES
 
    ; Comfort score affected by random events (weather, mechanical failure) and saturation of public transit
-  ask people [
+  ask people with [second-half?] [
 
     ifelse density >= 1                        ; high congestion increases stress, decreasing convinience
      [
@@ -1936,7 +1952,7 @@ to update-scores-tech-attributes
 
     ;show max-time
 
-ask people [
+  ask people with [second-half?] [
 
     ; Note Max 2 - since people can commute from anywhere to anywhere, the time calculation needs to be changed. I propose the following:
     ifelse time > 0
@@ -1970,7 +1986,7 @@ end
 
 
 to update-satisfaction
-  ask people
+  ask people  with [second-half?]
    [
       ; Note Max 4: should the satisfaction for time be based on the fastest mode available (moto)? If I am using a bus, i might be super fast for a bus but I am still not very fast for a moto
     set satisfaction-maxitaxi (w-buy * cost-buy-maxitaxi + w-ope * cost-op-maxitaxi + w-saf * safety-maxitaxi + w-sec * security-maxitaxi + w-com * comfort-maxitaxi + w-tim * time-maxitaxi + w-pol * pollution-tot + w-conv * convinience-maxitaxi)
@@ -1980,19 +1996,19 @@ to update-satisfaction
     set satisfaction-pub (w-buy * cost-buy-pub + w-ope * cost-op-pub + w-saf * safety-pub + w-sec * security-pub + w-com * comfort-pub + w-tim * time-pub + w-pol * pollution-tot + w-conv * convinience-pub)
    ]
 
-  ask people with [t-type = 1]
+  ask people with [second-half? and t-type = 1]
    [set satisfaction satisfaction-car]
-  ask people with [t-type = 2]
+  ask people with [second-half? and t-type = 2]
    [set satisfaction satisfaction-maxitaxi]
-  ask people with [t-type = 3]
+  ask people with [second-half? and t-type = 3]
    [set satisfaction satisfaction-pub]
-  ask people with [t-type = 4]
+  ask people with [second-half? and t-type = 4]
    [set satisfaction satisfaction-taxi]
 
 end
 
 to update-experience
- ask people
+ ask people  with [second-half?]
   [
    if t-type = 1 [set experience-car experience-car + 1]
    if t-type = 2 [set experience-maxitaxi experience-maxitaxi + 1]
@@ -2007,7 +2023,7 @@ to update-uncertainty
   set alpha first (item 50 my-csv-dataset)
   set beta  first (item 51 my-csv-dataset)
 
-  ask people
+    ask people with [second-half?]
   [
    ; calculates how many neihgbors have the same transport mode
     let mymode t-type
@@ -2032,18 +2048,18 @@ end
 
 
 to update-type-choice
-  ask people with [satisfaction > satisfaction-threshold and uncertainty <= uncertainty-threshold] ; Hof 1 y sat thr 0
+  ask people with [second-half? and satisfaction > satisfaction-threshold and uncertainty <= uncertainty-threshold] ; Hof 1 y sat thr 0
    [set type-choice "repetition" ]; repetition keeps the same transport-mode of the previous period
 
-  ask people with [satisfaction >= satisfaction-threshold and uncertainty > uncertainty-threshold] ; AGREGAR EL IGUAL EN SATISFACTION y quitar de uncertainty Hof 0 y Sat thr 0
+  ask people with [second-half? and satisfaction >= satisfaction-threshold and uncertainty > uncertainty-threshold] ; AGREGAR EL IGUAL EN SATISFACTION y quitar de uncertainty Hof 0 y Sat thr 0
    [set type-choice "imitation"]
     ;set color white]
 
-  ask people with [satisfaction <= satisfaction-threshold and uncertainty < uncertainty-threshold]  ; Hof 1 y Sat thr 1
+  ask people with [second-half? and satisfaction <= satisfaction-threshold and uncertainty < uncertainty-threshold]  ; Hof 1 y Sat thr 1
    [set type-choice "deliberation"]
     ;set color white]
 
-  ask people with [satisfaction < satisfaction-threshold and uncertainty >= uncertainty-threshold] ;  Hof 0 y Sat thr 1
+  ask people with [second-half? and satisfaction < satisfaction-threshold and uncertainty >= uncertainty-threshold] ;  Hof 0 y Sat thr 1
    [set type-choice "inquiry"]
     ;set color white]
 end
