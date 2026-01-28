@@ -263,6 +263,10 @@ to setup
 
   draw ;draw the shp of cali
 
+  ask patches with [CID = 472] [;; prohibido
+    set CID 0
+  ]
+
   ;1 setup population
   initilize-population
 
@@ -298,6 +302,7 @@ to setup
   setup-highway-waypoints  ;; NEW
 
   compute-coast-distance  ;; NEW
+
 
 
   show "Initialization Done! Time it took:"
@@ -424,6 +429,10 @@ to draw
       ;set PID x
     ]
     set x x + 1
+  ]
+
+  ask patches with [CID = 472] [; prohibido
+    set CID 0
   ]
 end
 
@@ -2971,7 +2980,7 @@ true
 false
 "" ""
 PENS
-"density" 1.0 0 -16777216 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [density] of people]"
+"density" 1.0 0 -16777216 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [density] of people with [not arrived?]]"
 
 PLOT
 970
@@ -2989,11 +2998,11 @@ true
 true
 "" ""
 PENS
-"average" 1.0 0 -10899396 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people]"
-"car" 1.0 0 -2674135 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 1]]"
-"maxitaxi" 1.0 0 -16777216 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 2]]"
-"pub" 1.0 0 -13345367 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 3]]"
-"taxi" 1.0 0 -7500403 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 4]]\n"
+"average" 1.0 0 -10899396 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [not arrived?]]"
+"car" 1.0 0 -2674135 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 1 and not arrived?]]"
+"maxitaxi" 1.0 0 -16777216 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 2 and not arrived?]]"
+"pub" 1.0 0 -13345367 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 3 and not arrived?]]"
+"taxi" 1.0 0 -7500403 true "" "ifelse ticks = 0 \n[plot 0]\n[plot mean [speed] of people with [t-type = 4 and not arrived?]]\n"
 
 MONITOR
 966
@@ -3797,7 +3806,7 @@ vision-dist
 vision-dist
 1
 20
-10.0
+3.0
 1
 1
 NIL
