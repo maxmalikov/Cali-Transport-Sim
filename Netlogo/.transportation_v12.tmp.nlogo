@@ -6,7 +6,7 @@ breed [people person] ;simulate people
 ;nw:save-gexf
 ;nw:save-gml  "example.graphml"
 
-;---------------Gloabl Variables------------------
+;---------------Global Variables------------------
 globals[
   my-gis-dataset         ;gis dataset
   my-csv-dataset         ;list with parameters imported from csv
@@ -55,6 +55,7 @@ globals[
   p-buy3 p-ope3 p-saf3 p-sec3 p-com3 p-tim3 p-pol3 ;Weights for high-income people
   alpha beta ;Uncertainty Parameters
   commitment
+  incoming-commuters
 
 ]
 
@@ -151,6 +152,7 @@ people-own[
   moto-owner    ; 1-yes, 0-no
   arrived?      ; true- made it to destination, false- commuting
   big-destination ; used to determine whether this person should be part of a school/work network
+  family?        ; used to indicate that this person is part of a family. Specifically, used during link setup
 ]
 
 links-own [
@@ -205,22 +207,24 @@ to setup
 
   set-speed
 
-
-
-  ;create-small-world-network
-  ;create-small-world-network2
-  ;create-small-world-network3
+  ; we can change the network generation method here
+  create-social-network-fast
   ;create-preferential-network
-  ;create-social-network
-  ;create-social-network-fast
-  create-social-network-fast2
   ;nw:save-matrix "matrix-0-sn2.csv"
-  ;csv:to-file "results-0-sn2.csv" [ (list who h-social-type link-neighbors [h-social-type] of link-neighbors) ] of turtles
-  show "Initialization Done!"
+  ;csv:to-file "results-0-sn8.csv" [ (list who h-social-type link-neighbors [h-social-type] of link-neighbors) ] of turtles
+  ; ------ exporting data for histograms -----------------
+  let header ["id" "est" "number of links"]
+  let export-data [ (list who h-social-type count link-neighbors) ] of turtles
+  set export-data fput header export-data
+  csv:to-file "results-0-pa2.csv" export-data
+  ; ---------------------------------------------------
+  show "Initialization Done! Time it took:"
   show timer
   ;nw:save-graphml "sim_network.graphml"
   ;profiler:stop
   ;print profiler:report
+  ; test
+
 end
 
 ;1.2 Draw the Doundary and Assign each Polygon ID
@@ -242,6 +246,9 @@ to draw
   gis:apply-coverage my-gis-dataset "P_LOW"  plow
   gis:apply-coverage my-gis-dataset "P_MED"  pmed
   gis:apply-coverage my-gis-dataset "P_HIGH" phigh
+
+
+
 
   ;Fill the Ploygon with color
   foreach gis:feature-list-of my-gis-dataset
@@ -634,12 +641,12 @@ to set-h-social-type
         let med  [pmed] of patches with  [centroid? = true and PID = y]
 
         let per-low precision (item 0 low) 2
-        show per-low
+        ;show per-low
         if per-low != 0[
           ask n-of (round (people-count * per-low)) people with [h-social-type = 0] [set h-social-type  1]
         ]
         let per-med precision (item 0 med) 2
-        show per-med
+        ;show per-med
         if per-med != 0[
           ask n-of (round (people-count * per-med)) people with [h-social-type = 0] [set h-social-type 2]
         ]
@@ -650,6 +657,7 @@ to set-h-social-type
   ]
   ask people with [h-social-type = 0] [set h-social-type 3]
   ask people [
+    set family? false
     ifelse random 3 = 1
     [
       set big-destination true ; assign this person as someone who will have a school or work network
@@ -672,13 +680,29 @@ to distribute-people ; move genratend gents witin their community
   ]
 end
 
+to-report extract-column [column]
+  ; code used to create a list out of a column in a shapefile
+  report map [vector-feature -> gis:property-value vector-feature column ] (gis:feature-list-of my-gis-dataset )
+end
+
 to set-destination
+
   print "set destination"
-  ;community-list list []
-  ;let community-list (range 1 23)
-  ;print item 0 community-list
-  ;print item 21 community-list
-  ;print item 20 community-list
+  ; make a list of destination weights
+  set incoming-commuters extract-column "WEIGHT_INC"
+  ; create a probability threshold list based on the destination weights
+  let assignment-list [0]
+  foreach incoming-commuters
+  [
+    [x] ->
+    let last-item last assignment-list
+    set assignment-list lput (last-item + x) assignment-list
+  ]
+  ; round up the last item to 1 to ensure no missing assignments
+  set assignment-list but-last assignment-list
+  set assignment-list lput 1 assignment-list
+
+  ; reset everyone's community to 0 - this is useful for troubleshooting
   ask people [
     set destination-community 0
   ]
@@ -686,32 +710,49 @@ to set-destination
   ;dest-possi list [] 2, 3, 22 most reip to these three destination
   ; refined to use real data. Source: https://rpubs.com/juan_raigoso/1176374
 
-;CHECK THIS AND USE THE % FROM THE SHP FILE
+; WE NOW USE THE % FROM THE SHP FILE
+
+
   ask people [
   let options random-float 1
-    (ifelse
-      options <= 0.0084 [set destination-community	1 ]
-      options <= 0.1788 [set destination-community	2 ]
-      options <= 0.3091 [set destination-community	3 ]
-      options <= 0.3767 [set destination-community	4 ]
-      options <= 0.3966 [set destination-community	5 ]
-      options <= 0.4223 [set destination-community	6 ]
-      options <= 0.4493 [set destination-community	7 ]
-      options <= 0.4868 [set destination-community	8 ]
-      options <= 0.5344 [set destination-community	9 ]
-      options <= 0.5679 [set destination-community	10 ]
-      options <= 0.5897 [set destination-community	11 ]
-      options <= 0.5990 [set destination-community	12 ]
-      options <= 0.6243 [set destination-community	13 ]
-      options <= 0.6386 [set destination-community	14 ]
-      options <= 0.6603 [set destination-community	15 ]
-      options <= 0.6894 [set destination-community	16 ]
-      options <= 0.7623 [set destination-community	17 ]
-      options <= 0.7861 [set destination-community	18 ]
-      options <= 0.8963 [set destination-community	19 ]
-      options <= 0.9100 [set destination-community	20 ]
-      options <= 0.9296 [set destination-community	21 ]
-      [set destination-community	22 ])
+  let tracker 0
+  let counter 0
+    ; iterate over the probability threshold list until a value is found
+    while [ options >= tracker ]
+   [
+      ; look for the next value in the threshold list
+      set counter counter + 1
+      ; assign the threshold to the next value in the list
+      set tracker item counter assignment-list
+      ; if the value matches our random number, set the community equal to item index - commune number
+      if options < tracker [ set destination-community	counter ]
+
+   ]
+
+    ; old code
+;    (ifelse
+;      options <= 0.0084 [set destination-community	1 ]
+;      options <= 0.1788 [set destination-community	2 ]
+;      options <= 0.3091 [set destination-community	3 ]
+;      options <= 0.3767 [set destination-community	4 ]
+;      options <= 0.3966 [set destination-community	5 ]
+;      options <= 0.4223 [set destination-community	6 ]
+;      options <= 0.4493 [set destination-community	7 ]
+;      options <= 0.4868 [set destination-community	8 ]
+;      options <= 0.5344 [set destination-community	9 ]
+;      options <= 0.5679 [set destination-community	10 ]
+;      options <= 0.5897 [set destination-community	11 ]
+;      options <= 0.5990 [set destination-community	12 ]
+;      options <= 0.6243 [set destination-community	13 ]
+;      options <= 0.6386 [set destination-community	14 ]
+;      options <= 0.6603 [set destination-community	15 ]
+;      options <= 0.6894 [set destination-community	16 ]
+;      options <= 0.7623 [set destination-community	17 ]
+;      options <= 0.7861 [set destination-community	18 ]
+;      options <= 0.8963 [set destination-community	19 ]
+;      options <= 0.9100 [set destination-community	20 ]
+;      options <= 0.9296 [set destination-community	21 ]
+;      [set destination-community	22 ])
 
     let target-community destination-community
     let matching-patches patches with [CID = target-community]
@@ -736,106 +777,123 @@ end
 to set-transportation-type
   ask people [set t-type 0]
 
-  show "setting up trasportation"
-  ; set up motor based on the real r
-  ; the rest of the people will be 40:39:21 as cars:public:cycle
-  ;male
-  ask n-of (round count people with [h-social-type = 1 and gender = 1] * 0.13) people with [h-social-type = 1 and gender = 1 and t-type = 0][
-    set t-type 1 ;car
+  show "setting up transportation"
 
+; Read probabilities from CSV file
+ ; Male (m) - Social-types 1 to 3 - Transport-modes: c=car, m=mot, p=pub
+let prob-m1c first (item 53 my-csv-dataset)  ; male-social-type-1-car
+let prob-m1m first (item 54 my-csv-dataset)  ; male-social-type-1-mot
+let prob-m1p first (item 55 my-csv-dataset)  ; male-social-type-1-pub
+
+let prob-m2c first (item 59 my-csv-dataset)  ; male-social-type-2-car
+let prob-m2m first (item 60 my-csv-dataset)  ; male-social-type-2-mot
+let prob-m2p first (item 61 my-csv-dataset)  ; male-social-type-2-pub
+
+let prob-m3c first (item 65 my-csv-dataset)  ; male-social-type-3-car
+let prob-m3m first (item 66 my-csv-dataset)  ; male-social-type-3-mot
+let prob-m3p first (item 67 my-csv-dataset)  ; male-social-type-3-pub
+
+ ; Female (m) - Social-types 1 to 3 - Transport-modes: c=car, m=mot, p=pub
+let prob-f1c first (item 56 my-csv-dataset)  ; female-social-type-1-car
+let prob-f1m first (item 57 my-csv-dataset)  ; female-social-type-1-mot
+let prob-f1p first (item 58 my-csv-dataset)  ; female-social-type-1-pub
+
+let prob-f2c first (item 62 my-csv-dataset)  ; female-social-type-2-car
+let prob-f2m first (item 63 my-csv-dataset)  ; female-social-type-2-mot
+let prob-f2p first (item 64 my-csv-dataset)  ; female-social-type-2-pub
+
+let prob-f3c first (item 68 my-csv-dataset)  ; female-social-type-3-car
+let prob-f3m first (item 69 my-csv-dataset)  ; female-social-type-3-mot
+let prob-f3p first (item 70 my-csv-dataset)  ; female-social-type-3-pub
+
+; count people with the same gender in the same social class
+ let   males-social-1 (count people with [h-social-type = 1 and gender = 1])
+ let   males-social-2 (count people with [h-social-type = 2 and gender = 1])
+ let   males-social-3 (count people with [h-social-type = 3 and gender = 1])
+ let females-social-1 (count people with [h-social-type = 1 and gender = 2])
+ let females-social-2 (count people with [h-social-type = 2 and gender = 2])
+ let females-social-3 (count people with [h-social-type = 3 and gender = 2])
+
+; Assignation of transport modes
+; Male in social class 1
+ask n-of (round males-social-1 * prob-m1c) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+  set t-type 1  ; car
+]
+
+ask n-of (round males-social-1 * prob-m1m) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+  set t-type 2  ; moto
+]
+
+ask n-of (round males-social-1 * prob-m1p) people with [h-social-type = 1 and gender = 1 and t-type = 0] [
+  set t-type 3  ; pub
+]
+
+; Males in social class 2
+ask n-of (round males-social-2 * prob-m2c) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round males-social-2 * prob-m2m) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round males-social-2 * prob-m2p) people with [h-social-type = 2 and gender = 1 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
+
+; Males in social class 3
+ask n-of (round males-social-3 * prob-m3c) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round males-social-3 * prob-m3m) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round males-social-3 * prob-m3p) people with [h-social-type = 3 and gender = 1 and t-type = 0] [
+  set t-type 3  ; pub
+]
+
+; Females in social class 1
+ask n-of (round females-social-1 * prob-f1c) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round females-social-1 * prob-f1m) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round females-social-1 * prob-f1p) people with [h-social-type = 1 and gender = 2 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
+
+; Females in social class 2
+ask n-of (round females-social-2 * prob-f2c) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round females-social-2 * prob-f2m) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round females-social-2 * prob-f2p) people with [h-social-type = 2 and gender = 2 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
+
+; Females in social class 3
+ask n-of (round females-social-3 * prob-f3c) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+  set t-type 1  ; car
+]
+ask n-of (round females-social-3 * prob-f3m) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+  set t-type 2  ; moto
+]
+ask n-of (round females-social-3 * prob-f3p) people with [h-social-type = 3 and gender = 2 and t-type = 0] [
+  set t-type 3  ; pub (bus)
+]
+
+
+; Assignation for remanining people with t-type 0
+
+   ask people with [t-type = 0] [
+
+   let mode-prob random-float 1
+    set t-type
+    ifelse-value mode-prob <= 0.4 [1][
+      ifelse-value mode-prob <= 0.65 [2][3]
+    ]
   ]
-
-  ask n-of (round count people with [h-social-type = 1 and gender = 1] * 0.40) people with [h-social-type = 1 and gender = 1 and t-type = 0][
-    set t-type 2 ;moto
-
-  ]
-
-  ask n-of (round count people with [h-social-type = 1 and gender = 1] * 0.47) people with [h-social-type = 1 and gender = 1 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  ask n-of (round count people with [h-social-type = 2 and gender = 1] * 0.47) people with [h-social-type = 2 and gender = 1 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 1] * 0.25) people with [h-social-type = 2 and gender = 1 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 1] * 0.28) people with [h-social-type = 2 and gender = 1 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 1] * 0.83) people with [h-social-type = 3 and gender = 1 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 1] * 0.07) people with [h-social-type = 3 and gender = 1 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 1] * 0.10) people with [h-social-type = 3 and gender = 1 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  ;female
-   ask n-of (round count people with [h-social-type = 1 and gender = 2] * 0.12) people with [h-social-type = 1 and gender = 2 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 1 and gender = 2] * 0.29) people with [h-social-type = 1 and gender = 2 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 1 and gender = 2] * 0.59) people with [h-social-type = 1 and gender = 2 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  ask n-of (round count people with [h-social-type = 2 and gender = 2] * 0.51) people with [h-social-type = 2 and gender = 2 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 2] * 0.18) people with [h-social-type = 2 and gender = 2 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 2 and gender = 2] * 0.31) people with [h-social-type = 2 and gender = 2 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  ask n-of (round count people with [h-social-type = 3 and gender = 2] * 0.90) people with [h-social-type = 3 and gender = 2 and t-type = 0][
-    set t-type 1 ;cars
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 2] * 0.03) people with [h-social-type = 3 and gender = 2 and t-type = 0][
-    set t-type 2 ;moto
-    ;set the trasportation type then set other attrubute based on the type (motor, car, public)
-
-  ]
-  ask n-of (round count people with [h-social-type = 3 and gender = 2] * 0.07) people with [h-social-type = 3 and gender = 2 and t-type = 0][
-    set t-type 3 ;bus
-
-  ]
-
-  let mode-prob random-float 1
-
-  ask people with [t-type = 0]
-[
-
-  ifelse mode-prob <= 0.4  [set t-type 1]
-          [ifelse mode-prob <= 0.25 [set t-type 2]
-              [set t-type 3]]
-
-  ]
-
 
   ask people
   [set-transportation-info-based-on-type]
@@ -1176,13 +1234,13 @@ end
 to go
 
   ;; VIDEO RECORDING SETUP
-  if vid:recorder-status = "inactive" [
-    vid:start-recorder
-  ]
+  ;if vid:recorder-status = "inactive" [
+  ;  vid:start-recorder
+  ;]
   ;; CAPTURE THE CURRENT FRAME
   ;; Recording twice to "slow down" the video
-  vid:record-view
-  vid:record-view
+  ;vid:record-view
+  ;vid:record-view
 
   ;2 set up the transportation type
   ;stay the same
@@ -1199,13 +1257,13 @@ to go
   if ticks > 1
   [
 
-    if ticks mod (30) = 0 ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
+    if ticks mod (30) = 0.000 ; every 30 ticks represent a peak hour in a typical day of a year. People make decision every year (every 30 ticks).
                           ; procedures that run every decision period
     [
       update-scores-tech-attributes ; calulates values for tech attributes to be used in satisfaction update for each agent in every decision tick
       update-satisfaction    ; updates values of satisfcation for each agent in every tick
       update-experience      ; number of times that a person has chosen every transport mode over the time steps
-      update-uncertainty     ; updates uncertainty level for each agent in every tick
+      update-uncertainty     ; updates uncertainty level for each agent in every decision period
       update-type-choice     ; according to satisfaction and uncertainty applies the decision making rule
       ask people [move-to home-location set arrived? false]
     ]
@@ -1220,8 +1278,8 @@ to go
     ;; SAVE FINAL VIDEO
     if ticks = (Time-steps * 30 + 2)
     [
-      vid:save-recording "cali_sim.mp4"
-      print vid:recorder-status
+      ;vid:save-recording "cali_sim.mp4"
+      ;print vid:recorder-status
       stop
     ]
 
@@ -1522,7 +1580,7 @@ to update-time
 
     ; Note Max 3 we need to make sure public transport capacity is updated ; IT IS UPDATED NOW ATT:KATH
     let relative-speed (reg-speed-pub / speed-pub ) ; if current speed in the public system is lower than regular speed at the current capacity, people need to wait more
-    set wait-time-p ((random-normal  default-wait-time  1) * relative-speed  * wait-turns)  ; default wait time with the expected congestion at peak hour affected by the difference in speed with the current situation
+    set wait-time-p ((random-normal  default-wait-time  1) * relative-speed  * wait-turns)  ; default wait time with the expected congestion at peak hour affected by the difference in speed with the current situation WE SHOULD DIVIDE WAIT TIME BY 30 BECAUSE IT IS PER DECISION PERIOD.
                                                                                             ;in the street multiplied by the number of turns passengers need to wait to catch a bus due to the congestion in the public system
 
     ; Calculation of accumulated time to calculate the average time of travel per decision period
@@ -1533,21 +1591,21 @@ to update-time
       [
         set time-c (time-c + 2) ; dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
         set time-m (time-m + (2 * (mean-speed-c / mean-speed-m))) ; dist-home-work / speed-mot / 100 * 60)
-        set time-p (time-p + (2 * (mean-speed-c / mean-speed-p)) + wait-time-p) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
+        set time-p (time-p + (2 * (mean-speed-c / mean-speed-p)) + wait-time-p / 30) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
       ]
 
       if t-type = 2
       [
         set time-c (time-c + (2 * (mean-speed-m / mean-speed-c))) ; dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
         set time-m (time-m + 2) ; dist-home-work / speed-mot / 100 * 60)
-        set time-p (time-p + (2 * (mean-speed-m / mean-speed-p)) + wait-time-p) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
+        set time-p (time-p + (2 * (mean-speed-m / mean-speed-p )) + wait-time-p / 30) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
       ]
 
       if t-type = 3
       [
         set time-c (time-c + (2 * (mean-speed-p / mean-speed-c))) ; dist-home-work / speed-car / 100 * 60)  ;Note 7 why we are having this? since we should have this data in the peoples attribute
         set time-m (time-m + (2 * (mean-speed-p / mean-speed-m))) ; dist-home-work / speed-mot / 100 * 60)
-        set time-p (time-p + 2 + wait-time-p) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
+        set time-p (time-p + 2 + wait-time-p / 30) ; dist-home-work / speed-pub / 100 * 60 + wait-time-p)
       ]
 
 
@@ -1556,7 +1614,7 @@ to update-time
     ; Updates time for people according to the transport mode
     if t-type = 1  [set time time-c] ;"/30" calculates the average time to complete the commute home-work
     if t-type = 2  [set time time-m]
-    if t-type = 3  [set time time-p]
+    if t-type = 3  [set time time-p] ;
   ]
 
 end
@@ -1591,18 +1649,36 @@ to update-scores-tech-attributes
     ;show max-costv
     ;show min-costv
 
-   set costv-op-mot (1 - ((costv-mot - min-costv) / (max-costv - min-costv))) ; standarization of cost to obtain a score
-   set costv-op-car (1 - ((costv-car - min-costv) / (max-costv - min-costv))) ; standarization of cost to obtain a score
-
    let costv-op-pub 1 ; since public transit does not have variable costs, it has the highiest score
    let costfix-op-pub random-normal costf-op-pub deviation
 
+;   set costv-op-mot (1 - ((costv-mot - min-costv) / (max-costv - min-costv))) ; standardization of cost to obtain a score
+;   set costv-op-car (1 - ((costv-car - min-costv) / (max-costv - min-costv))) ; standardization of cost to obtain a score
+
+;   set costv-op-mot (1 - (costv-mot  / (costv-mot + costv-car + costv-op-pub))) ; standardization of cost to obtain a score
+;   set costv-op-car (1 - (costv-car /  (costv-mot + costv-car + costv-op-pub))) ; standardization of cost to obtain a score
+
+
+   ifelse costv-mot > 0
+    [set costv-op-mot (1 - (costv-mot  / (costv-mot + costv-car + 0)))] ; standardization of cost to obtain a score
+    [set costv-op-mot 0]
+    ifelse costv-car > 0
+    [set costv-op-car (1 - (costv-car /  (costv-mot + costv-car + 0)))] ; standardization of cost to obtain a score
+     [set costv-op-car 0]
+
+;   set costv-op-mot (1 - ((costv-mot - 0) / (max-costv - 0))) ; standardization of cost to obtain a score
+;   set costv-op-car (1 - ((costv-car - 0) / (max-costv - 0))) ; standardization of cost to obtain a score
+
+
+
    let sumcostop (costv-op-mot + costf-op-mot + costv-op-car + costf-op-car + costv-op-pub + costfix-op-pub) ;fixed cost scores come from the initial data
 
-   set cost-op-mot ((costv-op-mot + costf-op-mot) / sumcostop)
-   set cost-op-car ((costv-op-car + costf-op-car) / sumcostop)
+   set cost-op-mot ((costv-op-mot + costf-op-mot) / 2)
+   set cost-op-car ((costv-op-car + costf-op-car) / 2)
   ; set cost-op-pub ((costv-op-pub + costf-op-pub) / sumcostop)
-   set cost-op-pub costfix-op-pub
+  ;set cost-op-pub costfix-op-pub
+   set cost-op-pub ((costv-op-pub + costfix-op-pub) / 2)
+
 
  ; UPDATE SAFETY SCORES according to total number of accidents by mode
 
@@ -1685,8 +1761,8 @@ to update-scores-tech-attributes
    ;calaculation of time score based on possible time with other modes
 
 
-    let max-time max [time] of people    ; max time in the system
-    let min-time min [time] of people    ; min time in the system
+   ; let max-time max [time] of people    ; max time in the system
+   ; let min-time min [time] of people    ; min time in the system
 
     ;show max-time
 
@@ -1751,7 +1827,7 @@ end
 
 to update-uncertainty
 
-   ; Uncertainty Parameters to calculate experience
+   ; Uncertainty Parameters to calculate experience (Hofstede dimensions)
   set alpha first (item 50 my-csv-dataset)
   set beta  first (item 51 my-csv-dataset)
 
@@ -1772,6 +1848,7 @@ to update-uncertainty
    ; calculates uncertainty as the weighted average of the deviation of own experience and neighbors' experience. Alpha and Beta correspond to Hosftede variables.
     set uncertainty  ((alpha * (1 - myexperience)) + (beta * (1 - neighborsmymode / count link-neighbors)))
 
+    ;show mean [uncertainty] of people
   ]
 end
 
@@ -1914,87 +1991,179 @@ to update-age-people
  ask people [set age age + 1]
 end
 
-;; This is the network generating algorithm we will be using for now.
-to create-social-network-fast2
+;---------------------------------------------------------
+to create-social-network-fast ; using pareto distribution
+  let connections n-of 5 people
 
-  ; create variables
-  let my-node one-of people
-  let my-status [h-social-type] of my-node
-  let my-commune [hPoly] of my-node
-  let my-destination [destination-community] of my-node
-  ; seeding the links for preferential attachment
-  ask people with [h-social-type = 1]
-  [
-    create-link-with one-of other (people with [h-social-type = 1]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 2]
-  [
-    create-link-with one-of other (people with [h-social-type = 2]) [set hidden? true]
-  ]
-  ask people with [h-social-type = 3]
-  [
-    create-link-with one-of other (people with [h-social-type = 3]) [set hidden? true]
-  ]
+  ; for each comunity, connect families
+  let families people
 
-  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
-    set my-node one-of [both-ends] of one-of links
-    set my-status [h-social-type] of my-node
-    set my-commune [hPoly] of my-node
-    set my-destination [destination-community] of my-node
-    ask my-node [
-      ;; These numbers can be adjusted
-      create-links-with up-to-n-of (random-exponential 15) other people with [hPoly = my-commune] [set hidden? true]
-      create-links-with up-to-n-of (random-exponential 20) other people with [h-social-type = my-status] [set hidden? true]
-      create-links-with up-to-n-of (random-exponential 5) other people [set hidden? true]
-      ;; add 50% chance to generate these
-      ;; Max note:
-      ;; Need to increase local clustering average to 0.4 - interconnect x-y immediate neighbors?
-      if big-destination
-      [
-        create-links-with up-to-n-of (random-exponential 30) other people with [destination-community = my-destination and big-destination = true] [set hidden? true]
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set families people with [hPoly = n]
+
+    while [count families > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 5)) families
+      ask connections [
+        create-links-with other connections [set hidden? true]
       ]
+      set families families who-are-not connections
     ]
   ]
 
-end
+  ; for each comunity, connect neighbors
+  let neighborinos people
 
-
-
-to make-link
-
-          ;let number-of-connections 12 ; sets how many connections we want
-      ; set new node to a random end of a link; key to preferential attachment.
-      ; create a link with the curated node
-      let new-nodes other [both-ends] of one-of links
-      create-link-with one-of new-nodes [set hidden? true]
-
-end
-
-to-report find-partner [number old-node]
-  let link-ends []
-  repeat number
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
   [
-    let new-node [one-of both-ends] of one-of links
-    ; try to find a node of same class one more time
-    if [h-social-type] of new-node = [h-social-type] of old-node
+    n -> set neighborinos people with [hPoly = n]
+
+    while [count neighborinos > 0]
     [
-      set new-node [one-of both-ends] of one-of links
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 2) * (1 + random-float 6)) neighborinos
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set neighborinos neighborinos who-are-not connections
     ]
-    ; make sure we are not linking to self or duplicates
-    while [new-node = old-node or member? new-node link-ends]
-    [
-      set new-node [one-of both-ends] of one-of links
-    ]
-    set link-ends lput new-node link-ends
   ]
-  let agent-ends turtle-set link-ends
-  report agent-ends
+
+  ; for each social class, connect friends
+  let friends people
+
+  foreach [1 2 3]
+  [
+    n -> set friends people with [h-social-type = n]
+
+    while [count friends > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.5) * (1 + random-float 7)) friends
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set friends friends who-are-not connections
+    ]
+  ]
+
+   ; for each social class, establish business connections
+  let business people
+
+  foreach [1 2 3]
+  [
+    n -> set business people with [h-social-type = n]
+
+    while [count business > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.5) * (1 + random-float 7)) business
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set business business who-are-not connections
+    ]
+  ]
+
+;   add some household links
+
+  let all-people people
+
+  while [count all-people > 0]
+  [
+    ;show count connections
+    ; set connections up-to-n-of (random-pareto 1 1.2) families
+    let head-of-household one-of all-people
+    ask head-of-household [
+      let all-people-around people-on (patch-set patch-here neighbors)
+      let existing-households all-people-around who-are-not all-people
+      set all-people-around all-people-around who-are-not existing-households
+      set connections up-to-n-of ((random-pareto 2 2) * (1 + random-float 4)) all-people-around
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+
+      set all-people all-people who-are-not connections
+    ]
+  ]
+
+;  repeat (count people * 1 ) [ ; the multiplier will create an average of that many links per agent
+;    set my-node one-of [both-ends] of one-of all-my-links
+;    ask my-node
+;    [
+;     create-links-with up-to-n-of ((random-exponential 20) / 5) other people [set hidden? true]
+;    ]
+;  ]
+
+   ;connect workplaces. no schools since students do not generally drive
+  let workplaces people with [big-destination = true]
+
+  foreach [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
+  [
+    n -> set workplaces people with [destination-community = n and big-destination = true]
+
+    while [count workplaces > 0]
+    [
+      ;show count connections
+      ; set connections up-to-n-of (random-pareto 1 1.2) families
+      set connections up-to-n-of ((random-pareto 2 1.2) * (1 + random-float 75)) workplaces
+      ask connections [
+        create-links-with other connections [set hidden? true]
+      ]
+      set workplaces workplaces who-are-not connections
+    ]
+  ]
+
+
+
 end
+
+
+to create-preferential-network2
+  ; seeding the links for preferential attachment
+  ask n-of 50 people
+  [
+    create-link-with one-of other people [set hidden? true]
+  ]
+
+  ;let my-node one-of people
+  ask people
+  [
+    ; the multiplier will create an average of that many links per agent
+    let future-links up-to-n-of 48 links ; this determines how many nodes we will connect to
+    let future-nodes one-of [both-ends] of one-of future-links
+    ask future-links [
+      ;set my-node one-of [both-ends] of self
+      set future-nodes (turtle-set future-nodes one-of [both-ends] of self)
+    ]
+    create-links-with other future-nodes [set hidden? true]
+  ]
+
+end
+
 
 to-report global-clustering-coefficient
   let closed-triplets sum [ nw:clustering-coefficient * count my-links * (count my-links - 1) ] of turtles
   let triplets sum [ count my-links * (count my-links - 1) ] of turtles
   report closed-triplets / triplets
+end
+
+to-report random-pareto [xmin a]
+  let u random-float 1  ;; Generate a random number
+  if u = 0 [ set u 1e-10 ] ; unneeded since 1 is never generated
+  ; report (xmin * ((u) ^ (-1 / a))) ;; alpha of 51/50 (1.02) will give us a mean of 51
+  report sqrt (xmin * ((u) ^ (-1 / a))) ;; alpha of 51/50 (1.02) will give us a mean of 51
+
+end
+
+to-report local-clustering
+  report mean [ nw:clustering-coefficient ] of turtles
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -2025,7 +2194,7 @@ ticks
 30.0
 
 BUTTON
-5
+9
 10
 72
 43
@@ -2258,12 +2427,27 @@ scale-population
 Number
 
 SLIDER
-3
-331
-100
-364
+1
+354
+98
+387
 Uncert-m
 Uncert-m
+0
+1
+0.6
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1
+391
+98
+424
+Uncert-c
+Uncert-c
 0
 1
 0.5
@@ -2273,40 +2457,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-3
-368
-100
-401
-Uncert-c
-Uncert-c
+1
+428
+98
+461
+Uncert-p
+Uncert-p
 0
 1
-0.4
+0.5
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-3
-405
-100
-438
-Uncert-p
-Uncert-p
-0
-1
-0.45
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-103
-330
-196
-363
+101
+353
+194
+386
 Satisf-m
 Satisf-m
 0
@@ -2318,10 +2487,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-102
-368
-196
-401
+100
+391
+194
+424
 Satisf-c
 Satisf-c
 0
@@ -2333,25 +2502,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-103
-405
-196
-438
+101
+428
+194
+461
 Satisf-p
 Satisf-p
 0
 1
-0.57
+0.3
 0.01
 1
 NIL
 HORIZONTAL
 
 CHOOSER
-13
-457
-151
-502
+11
+480
+149
+525
 inquiry-process
 inquiry-process
 "everybody" "most-used"
@@ -2411,10 +2580,10 @@ count people with [t-type = 3] / count people
 11
 
 INPUTBOX
-89
-140
-184
-200
+83
+109
+178
+169
 Time-steps
 10.0
 1
@@ -2661,10 +2830,10 @@ PENS
 "pub" 1.0 0 -13345367 true "" "plot count people with [safety = 1 and t-type = 3]"
 
 TEXTBOX
-1355
-389
-1505
-407
+2040
+191
+2190
+209
 travel information
 14
 103.0
@@ -2823,10 +2992,10 @@ mean [uncertainty] of people with [t-type = 3]
 11
 
 PLOT
-1612
-52
-1812
-202
+1836
+421
+2036
+571
 Personal Travel Time
 NIL
 NIL
@@ -2838,10 +3007,10 @@ true
 false
 "" ""
 PENS
-"tot" 1.0 0 -10899396 true "" "if (ticks mod (30)) = 1 [plot mean [time] of people]"
-"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot mean [time] of people with [t-type = 1]]"
-"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot mean [time] of people with [t-type = 2]]"
-"pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 [plot mean [time] of people with [t-type = 3]]"
+"tot" 1.0 0 -10899396 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people]"
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people with [t-type = 2]]"
+"pub" 1.0 0 -13345367 true "" "if (ticks mod (30)) = 1 and ticks > 0 [plot mean [time] of people with [t-type = 3]]"
 
 MONITOR
 1530
@@ -2898,9 +3067,10 @@ true
 true
 "" ""
 PENS
-"mot" 1.0 0 -16777216 true "" "if ticks > 30 [plot (mean [satisfaction-mot] of people with [t-type = 1] )]"
-"car" 1.0 0 -2674135 true "" "plot (sum [satisfaction-car] of people with [t-type = 2] / count people with [t-type = 2])"
-"oub" 1.0 0 -14070903 true "" "plot (sum [satisfaction-pub] of people with [t-type = 3] / count people with [t-type = 3])"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [satisfaction-mot] of people with [t-type = 1] )]"
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (sum [satisfaction-car] of people with [t-type = 2] / count people with [t-type = 2])]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (sum [satisfaction-pub] of people with [t-type = 3] / count people with [t-type = 3])]"
+"thr" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot mean [ satisfaction-threshold ] of people with [t-type = 3]]"
 
 PLOT
 1871
@@ -2918,9 +3088,331 @@ true
 true
 "" ""
 PENS
-"car" 1.0 0 -2674135 true "" "plot (mean [uncertainty] of people with [t-type = 1] )"
-"mot" 1.0 0 -16777216 true "" "plot (mean [uncertainty] of people with [t-type = 2] )"
-"pub" 1.0 0 -10649926 true "" "plot (mean [uncertainty] of people with [t-type = 3] )"
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 1] )]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 2] )]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot (mean [uncertainty] of people with [t-type = 3] )]"
+"thr" 1.0 0 -7500403 true "" "if (ticks mod (30)) = 1 [plot mean [ uncertainty-threshold ] of people  with [t-type = 3]]"
+
+PLOT
+1599
+45
+1759
+165
+Cost-op
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-car] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-mot] of people with [t-type = 2]]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [cost-op-pub] of people with [t-type = 3]]"
+
+PLOT
+1765
+46
+1925
+166
+safety
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-car] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-mot] of people with [t-type = 2]]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [safety-pub] of people with [t-type = 3]]"
+
+MONITOR
+1837
+576
+1907
+621
+wait time
+mean [wait-time-p] of people / 30
+2
+1
+11
+
+PLOT
+2095
+45
+2255
+165
+security
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-car] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-mot] of people with [t-type = 2]]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [security-pub] of people with [t-type = 3]]"
+
+PLOT
+1929
+46
+2089
+166
+comfort
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-car] of people with [t-type = 1]]"
+"mot" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-mot] of people with [t-type = 2]]"
+"pub" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [comfort-pub] of people with [t-type = 3]]"
+
+PLOT
+2099
+221
+2259
+341
+time
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -2674135 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-car] of people with [t-type = 1]]"
+"pen-1" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-mot] of people with [t-type = 2]]"
+"pen-2" 1.0 0 -10649926 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [time-pub] of people with [t-type = 3]]"
+
+PLOT
+2267
+221
+2427
+341
+pollution
+NIL
+NIL
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "if ticks > 30 and (ticks mod (30)) = 1 [plot mean [pollution-tot] of people]"
+
+MONITOR
+1919
+576
+2004
+621
+Wait time total
+mean [wait-time-p] of people
+2
+1
+11
+
+PLOT
+1840
+665
+2000
+785
+Repetition
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"repetition\"])]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"repetition\"])]"
+"pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"repetition\"])]"
+
+MONITOR
+1053
+157
+1202
+202
+average degree
+2 * (count links / count people)
+17
+1
+11
+
+PLOT
+2006
+666
+2166
+786
+Imitation
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"imitation\"])]"
+"moto" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"imitation\"])]"
+"pub2" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"imitation\"])]"
+
+TEXTBOX
+67
+329
+217
+347
+Thresholds
+14
+103.0
+1
+
+PLOT
+2170
+666
+2330
+786
+Inquiry
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"inquiry\"])]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"inquiry\"])]"
+"pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"inquiry\"])]"
+
+PLOT
+2095
+541
+2255
+661
+Deliberate
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"car" 1.0 0 -2674135 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 1 AND type-choice = \"deliberation\"])]"
+"mot" 1.0 0 -16777216 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 2 AND type-choice = \"deliberation\"])]"
+"pub" 1.0 0 -10649926 true "" "if (ticks mod (30)) = 1 [plot (count people with [t-type = 3 AND type-choice = \"deliberation\"])]"
+
+TEXTBOX
+203
+39
+352
+68
+  █
+11
+106.0
+0
+
+TEXTBOX
+203
+67
+352
+94
+  █
+11
+107.0
+0
+
+TEXTBOX
+203
+16
+351
+39
+    Legend:
+11
+0.0
+0
+
+TEXTBOX
+203
+93
+352
+119
+  █
+11
+108.0
+0
+
+TEXTBOX
+222
+39
+372
+57
+- High-income commune
+11
+0.0
+1
+
+TEXTBOX
+221
+67
+371
+85
+- Medium-income commune
+11
+0.0
+1
+
+TEXTBOX
+222
+93
+372
+111
+- Low-income commune
+11
+0.0
+1
+
+TEXTBOX
+350
+16
+365
+119
+NIL
+11
+0.0
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -3268,6 +3760,108 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="proofs-threshholds" repetitions="40" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count people</metric>
+    <metric>(count people with [t-type = 1]) / (count people)</metric>
+    <metric>(count people with [t-type = 2]) / (count people)</metric>
+    <metric>(count people with [t-type = 3]) / (count people)</metric>
+    <metric>count people with [type-choice = "repetition"]</metric>
+    <metric>count people with [type-choice = "imitation"]</metric>
+    <metric>count people with [type-choice = "deliberation"]</metric>
+    <metric>count people with [type-choice = "inquiry"]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 1]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 2]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 3]</metric>
+    <metric>mean [satisfaction] of people</metric>
+    <metric>mean [uncertainty] of people with [t-type = 1]</metric>
+    <metric>mean [uncertainty] of people with [t-type = 2]</metric>
+    <metric>mean [uncertainty] of people with [t-type = 3]</metric>
+    <metric>mean [uncertainty] of people</metric>
+    <runMetricsCondition>ticks mod 30 = 1 OR ticks mod 30 = 2</runMetricsCondition>
+  </experiment>
+  <experiment name="proofs" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count people</metric>
+    <metric>(count people with [t-type = 1]) / (count people)</metric>
+    <metric>(count people with [t-type = 2]) / (count people)</metric>
+    <metric>(count people with [t-type = 3]) / (count people)</metric>
+    <metric>count people with [type-choice = "repetition"]</metric>
+    <metric>count people with [type-choice = "imitation"]</metric>
+    <metric>count people with [type-choice = "deliberation"]</metric>
+    <metric>count people with [type-choice = "inquiry"]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 1]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 2]</metric>
+    <metric>mean [satisfaction] of people with [t-type = 3]</metric>
+    <metric>mean [satisfaction] of people</metric>
+    <metric>mean [uncertainty] of people with [t-type = 1]</metric>
+    <metric>mean [uncertainty] of people with [t-type = 2]</metric>
+    <metric>mean [uncertainty] of people with [t-type = 3]</metric>
+    <metric>mean [uncertainty] of people</metric>
+    <metric>count people with [safety = 1 and t-type = 1]</metric>
+    <metric>count people with [safety = 1 and t-type = 2]</metric>
+    <metric>count people with [safety = 1 and t-type = 3]</metric>
+    <metric>count people with [safety = 1]</metric>
+    <metric>count people with [security = 1 and t-type = 1]</metric>
+    <metric>count people with [security = 1 and t-type = 2]</metric>
+    <metric>count people with [security = 1 and t-type = 3]</metric>
+    <metric>count people with [security = 1]</metric>
+    <metric>sum [pollution] of people with [t-type = 1]</metric>
+    <metric>sum [pollution] of people with [t-type = 2]</metric>
+    <metric>sum [pollution] of people with [t-type = 3]</metric>
+    <metric>sum [pollution] of people</metric>
+    <metric>sum [time] of people with [t-type = 1]</metric>
+    <metric>sum [time] of people with [t-type = 2]</metric>
+    <metric>sum [time] of people with [t-type = 3]</metric>
+    <metric>sum [time] of people</metric>
+    <metric>mean [time] of people with [t-type = 1]</metric>
+    <metric>mean [time] of people with [t-type = 2]</metric>
+    <metric>mean [time] of people with [t-type = 3]</metric>
+    <metric>mean [time] of people</metric>
+    <metric>sum [kms] of people with [t-type = 1]</metric>
+    <metric>sum [kms] of people with [t-type = 2]</metric>
+    <metric>sum [kms] of people with [t-type = 3]</metric>
+    <metric>sum [kms] of people</metric>
+    <metric>mean [kms] of people with [t-type = 1]</metric>
+    <metric>mean [kms] of people with [t-type = 2]</metric>
+    <metric>mean [kms] of people with [t-type = 3]</metric>
+    <metric>mean [kms] of people</metric>
+    <metric>mean [acc-mot-count] of people</metric>
+    <metric>mean [acc-car-count] of people</metric>
+    <metric>mean [acc-pub-count] of people</metric>
+    <metric>mean [inc-mot-count] of people</metric>
+    <metric>mean [inc-car-count] of people</metric>
+    <metric>mean [inc-pub-count] of people</metric>
+    <metric>mean [speed] of people with [t-type = 1]</metric>
+    <metric>mean [speed] of people with [t-type = 2]</metric>
+    <metric>mean [speed] of people with [t-type = 3]</metric>
+    <metric>count people with [t-type = 1]</metric>
+    <metric>count people with [t-type = 2]</metric>
+    <metric>count people with [t-type = 3]</metric>
+    <metric>mean [wait-time-p] of people with [t-type = 3]</metric>
+    <metric>mean [speed] of people</metric>
+    <runMetricsCondition>ticks mod 30 = 1 OR ticks mod 30 = 2</runMetricsCondition>
+  </experiment>
+  <experiment name="proofs-threshholds sn" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>(count people with [t-type = 1]) / (count people)</metric>
+    <metric>(count people with [t-type = 2]) / (count people)</metric>
+    <metric>(count people with [t-type = 3]) / (count people)</metric>
+    <runMetricsCondition>ticks mod 30 = 2</runMetricsCondition>
+  </experiment>
+  <experiment name="proofs-threshholds pa" repetitions="15" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>(count people with [t-type = 1]) / (count people)</metric>
+    <metric>(count people with [t-type = 2]) / (count people)</metric>
+    <metric>(count people with [t-type = 3]) / (count people)</metric>
+    <runMetricsCondition>ticks mod 30 = 2</runMetricsCondition>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
